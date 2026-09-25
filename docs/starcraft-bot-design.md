@@ -2,17 +2,15 @@
 
 ## Concept
 
-Right now the bot is one function: `CompetitiveBot.on_step` in `bot/bot.py` reads game state,
-decides what to build, and issues actions all in the same if/elif ladder. That works while the
-bot only knows a handful of rules, but it doesn't scale. Every new rule has to know about every
+A bot that reads game state, decides what to do, and issues actions all in one place works while
+it only knows a handful of rules, but it doesn't scale. Every new rule has to know about every
 other rule's state, two rules can grab the same worker or spend the same minerals in one frame,
 and there's no single place that could answer "what is this bot actually trying to do right now?"
 
 The design below splits that work into layers that run in a fixed order once per game step.
 Each layer only talks to the one next to it, and decisions get more concrete as they move down:
 perception, then goals, then intents, then approved actions, then API calls. This doc records the
-intent and target shape. It is not a refactor commitment: `bot.py` keeps working as-is until
-pieces are pulled out deliberately, one at a time.
+intent and target shape; it is reached incrementally (see "Suggested build order").
 
 ## Data flow, once per step
 
@@ -60,7 +58,7 @@ Connects to SC2, advances the game, and turns observations into state and action
 - **Input / output:** raw protobuf on the wire; `BotAI` state and action calls on the Python side.
 - **Notes:** step mode is deterministic and is what ladders use, so it's the right default for
   testing. Realtime mode is for playing against humans. The two-host LAN setup is the one unusual
-  part of this layer; keep connection logic in `run.py`/`setup.py`, not in the bot.
+  part of this layer; keep connection and host/port setup separate from bot logic.
 
 ## World Model + Map Analysis
 
@@ -158,18 +156,15 @@ Turns approved actions into python-sc2 calls.
 
 ## Suggested build order
 
-The goal is to peel layers out of `bot.py` one at a time without ever leaving the bot unable to
-play a full game.
+Build the layers one at a time without ever leaving the bot unable to play a full game.
 
-1. **World Model first.** Build a world-state object once per step from existing `BotAI` state.
-   Nothing behavioral changes; `bot.py` reads the snapshot instead of `self.*`.
-2. **Executor next.** Move `train_if_affordable`/`build_if_affordable` into a module that takes
-   actions in, instead of being called inline from `on_step`.
-3. **Economy manager + data-driven build order.** Replace the `should_train_*`/`should_build_*`
-   ladder with a build order file that Strategy reads and an Economy/Production manager that
-   returns intents. This is the thin vertical slice: economy, one build order, and "attack-move at
-   supply 100".
+1. **World Model first.** A world-state object built once per step from `BotAI` state, which
+   everything else reads instead of raw state.
+2. **Executor next.** The single place that turns actions into python-sc2 calls.
+3. **Economy manager + data-driven build order.** A build order file that Strategy reads and an
+   Economy/Production manager that returns intents. This is the thin vertical slice: economy, one
+   build order, and "attack-move at supply 100".
 4. **Arbiter** once a second manager needs workers or minerals.
 5. **Army squads and micro controllers last**, one unit type at a time.
 
-Each step should leave `bot.py` fully playable. This is an incremental extraction, not a rewrite.
+Each step should leave the bot fully playable. This is incremental, not a rewrite.
