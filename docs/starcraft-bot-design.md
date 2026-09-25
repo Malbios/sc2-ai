@@ -136,6 +136,38 @@ to build, mine and defend in the same frame. This layer resolves those conflicts
   batches them into one request per step, merges identical orders, and skips orders that exactly
   match what a unit is already doing.
 
+## Learned micro controllers
+
+Some micro controllers can be small models trained with reinforcement learning instead of
+hand-written rules. They plug into the existing micro controller slot; nothing above that layer
+knows or cares whether a controller is scripted or learned.
+
+- **One controller interface.** A controller takes its units, the squad's task and the World Model,
+  and returns orders. Scripted and learned controllers for the same unit type are interchangeable.
+- **Scripted first.** Every learned controller has a scripted counterpart for its unit type. It is
+  the baseline the model has to beat and the fallback when the model is missing or misbehaves.
+- **Shared observation builder.** A fixed-size, unit-centered observation built from the World
+  Model (e.g. nearest 8 enemies and allies with relative position, HP, shields, weapon cooldown,
+  plus the squad's target direction). Training and live play use the exact same function, so the
+  model never sees different inputs in real games than it was trained on.
+- **Discrete actions.** The model picks from a small set (attack nearest, attack weakest, retreat,
+  move toward squad target, hold, unit-specific abilities like burrow). The controller maps the
+  choice to python-sc2 commands. This keeps models tiny and their output limited to orders the
+  rest of the bot understands.
+- **Ownership and output unchanged.** The model only commands units its squad owns, and its orders
+  go out through the same path as every other order.
+- **Frame budget.** Run inference every few steps, and only for units in or near combat.
+
+Training lives outside the bot:
+
+- A separate training setup runs SC2 in step mode on small custom scenario maps (e.g. "8 roaches
+  vs 6 marauders"), using python-sc2 and the same observation builder, action mapping and
+  controller as the bot.
+- Reward is roughly damage dealt minus damage taken, plus a bonus for winning the fight.
+- The bot loads frozen weights at startup and does not learn during games.
+- Start with one unit type in one small scenario where scripted micro is clearly weak. SC2 is slow
+  to simulate, so training cost is the main constraint.
+
 ## Cross-cutting concerns
 
 - **Frame budget.** Expensive work (pathing, clustering, influence maps) runs every N steps or is
@@ -159,6 +191,8 @@ Build the layers one at a time without ever leaving the bot unable to play a ful
    directly.
 3. **Arbiter** once a second manager needs workers or minerals. It takes over issuing commands, and
    managers switch to returning intents.
-4. **Army squads and micro controllers last**, one unit type at a time.
+4. **Army squads and scripted micro controllers**, one unit type at a time.
+5. **Learned micro controllers** last, one unit type at a time, each replacing a scripted
+   controller only once it beats it in the same scenarios.
 
 Each step should leave the bot fully playable. This is incremental, not a rewrite.
