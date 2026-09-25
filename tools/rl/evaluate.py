@@ -3,13 +3,16 @@
     python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --model models/stalker/final.zip
     python -m tools.rl.evaluate --config ... --random          # baseline: random actions
     python -m tools.rl.evaluate --config ... --model ... --enemy-mode builtin
+    python -m tools.rl.evaluate --config ... --model ... --replay models/stalker/eval.SC2Replay
 
-The model acts deterministically (always its most likely action).
+The model acts deterministically (always its most likely action). --replay saves every evaluated
+fight, back to back, as one SC2 4.10 replay (open it in sc2-observer).
 """
 
 import argparse
 from collections import defaultdict
 from dataclasses import replace
+from pathlib import Path
 
 from tools.rl.config import ENEMY_MODES, load_config
 from tools.rl.env import SC2MicroEnv
@@ -44,6 +47,7 @@ def main():
     source.add_argument("--random", action="store_true", help="random actions, as a baseline")
     parser.add_argument("--episodes", type=int, default=20, help="fights per scenario")
     parser.add_argument("--enemy-mode", choices=ENEMY_MODES, help="overrides the config's enemy mode")
+    parser.add_argument("--replay", help="save all evaluated fights as one .SC2Replay at this path")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -70,6 +74,11 @@ def main():
                 if "scenario" in info:
                     fights.append(info)
                 print(f"{scenario.name} {episode + 1}/{args.episodes}: {info.get('outcome')}", flush=True)
+        if args.replay:
+            replay = Path(args.replay).resolve()
+            replay.parent.mkdir(parents=True, exist_ok=True)
+            env.driver.save_replay(str(replay))
+            print(f"Replay saved to {replay}", flush=True)
     finally:
         env.close()
 

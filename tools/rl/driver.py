@@ -65,6 +65,7 @@ class LearnerBot(BotAI):
     def __init__(self, driver: "GameDriver"):
         super().__init__()
         self.driver = driver
+        driver.learner_bot = self
 
     async def on_start(self):
         self.client.game_step = self.driver.config.decision_interval
@@ -96,6 +97,7 @@ class GameDriver:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.game_task: asyncio.Task | None = None
+        self.learner_bot: LearnerBot | None = None
         self.events: asyncio.Queue | None = None
         self.episode: Episode | None = None
         self.pending_reward = 0.0
@@ -290,6 +292,18 @@ class GameDriver:
             timed_out = payload["outcome"] == "timeout"
             return self._zero_obs, reward, not timed_out, timed_out, payload
         return self._zero_obs, reward, False, True, {"outcome": "game_over"}
+
+    def save_replay(self, path: str):
+        """Save a replay of the game so far: every fight since the game started. The request
+        must not overlap one of the learner's, so first let the game run until the learner is
+        waiting on the driver (right after a fight ends, it is still stepping the game)."""
+        if self.game_task is None or self.game_task.done():
+            raise RuntimeError("no running game to save a replay of")
+        while self._waiting_for is None:
+            kind, _ = self._next_event()
+            if kind == "game_over":
+                raise RuntimeError("the game ended before the replay could be saved")
+        self.loop.run_until_complete(self.learner_bot.client.save_replay(path))
 
     def close(self):
         # Cancelling the game makes python-sc2 shut its SC2 processes down; cancelling everything

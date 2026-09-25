@@ -60,6 +60,10 @@ python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --
 - While training, the log prints `fights/<scenario>/win_rate` and `damage_traded` over the last
   100 fights; `models/<name>/logs/progress.csv` has the same numbers for plotting.
 - The output folder holds `final.zip` (the model), `checkpoints/` and a copy of the config.
+- Training saves no replays: each environment keeps one SC2 game running for the whole training
+  and respawns units between fights. To watch a model, evaluate it with
+  `--replay models/stalker/eval.SC2Replay`, which saves all evaluated fights back to back in one
+  replay. It's an SC2 4.10 replay, so open it in sc2-observer; a newer Windows SC2 likely can't.
 - With `self_play` in the config, both sides train in turns, and each side gets its own folder
   (`a/`, `b/`) with a `final.zip`.
 
