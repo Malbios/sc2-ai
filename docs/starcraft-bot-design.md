@@ -37,10 +37,9 @@ intent and target shape; it is reached incrementally (see "Suggested build order
                  ┌──────────────▼───────────────┐
                  │  Arbiter / Resource Manager  │  unit ownership, mineral/gas
                  └──────────────┬───────────────┘  reservations, priority
-                                │ approved actions
-                 ┌──────────────▼───────────────┐
-                 │  Action Executor             │  dedupe, skip redundant orders,
-                 └──────────────────────────────┘  issue python-sc2 calls
+                                │
+                                ▼ python-sc2 unit commands
+                                  (batched by python-sc2 per step)
 ```
 
 Rules that keep the layers honest:
@@ -48,8 +47,9 @@ Rules that keep the layers honest:
 - The World Model is the only thing that reads raw `BotAI` state (`self.units`, `self.structures`,
   `self.enemy_units`, ...). Everything else reads the World Model.
 - Strategy and the managers never call action APIs. They return goals and intents.
-- The Executor is the only layer that calls `self.train(...)`, `self.build(...)`,
-  `unit.attack(...)` and ability usage.
+- The Arbiter is the only layer that issues python-sc2 commands (`unit.attack(...)`,
+  `unit.move(...)`, `worker.build(...)`, `self.train(...)`, ability usage). Never call
+  `self.client.actions(...)` directly, since that bypasses python-sc2's per-step batch.
 
 ## Game Interface
 
@@ -111,7 +111,9 @@ domain.
 - **Micro controllers:** the long-term goal is that for every ability of every unit there's an
   explicit instruction on how to use it well: when to burrow, when to kite, when to focus-fire,
   when to split against splash. Controllers are per unit type (or per ability), so they can be
-  added one at a time.
+  added one at a time. Controllers also decide when an order should be re-issued: skip
+  near-identical orders a unit is already carrying out, since re-issuing resets unit behavior
+  (kiting is the exception that needs frequent re-orders).
 - **Scouting:** keeps the World Model fresh, especially about enemy tech and expansions.
 
 - **Input:** goals from Strategy, plus the World Model.
@@ -130,17 +132,9 @@ to build, mine and defend in the same frame. This layer resolves those conflicts
 - **Priority:** when intents conflict, a fixed priority order decides (e.g. defense > supply >
   production > economy), and losing intents are dropped or deferred to the next step.
 - **Input:** all managers' intents, plus the World Model.
-- **Output:** the approved subset of intents, as actions for the Executor.
-
-## Action Executor
-
-Turns approved actions into python-sc2 calls.
-
-- Skips orders a unit already has. Re-issuing the same command every step resets unit behavior
-  and wastes actions.
-- Merges duplicate actions from the same step.
-- **Input:** approved actions from the Arbiter.
-- **Output:** `self.train(...)`, `await self.build(...)`, `unit.attack(...)`, ability usage.
+- **Output:** the approved subset of intents, issued as python-sc2 commands. python-sc2 already
+  batches them into one request per step, merges identical orders, and skips orders that exactly
+  match what a unit is already doing.
 
 ## Cross-cutting concerns
 
@@ -159,11 +153,12 @@ Build the layers one at a time without ever leaving the bot unable to play a ful
 
 1. **World Model first.** A world-state object built once per step from `BotAI` state, which
    everything else reads instead of raw state.
-2. **Executor next.** The single place that turns actions into python-sc2 calls.
-3. **Economy manager + data-driven build order.** A build order file that Strategy reads and an
-   Economy/Production manager that returns intents. This is the thin vertical slice: economy, one
-   build order, and "attack-move at supply 100".
-4. **Arbiter** once a second manager needs workers or minerals.
-5. **Army squads and micro controllers last**, one unit type at a time.
+2. **Economy manager + data-driven build order.** A build order file that Strategy reads and an
+   Economy/Production manager. This is the thin vertical slice: economy, one build order, and
+   "attack-move at supply 100". Until the Arbiter exists, this manager issues python-sc2 commands
+   directly.
+3. **Arbiter** once a second manager needs workers or minerals. It takes over issuing commands, and
+   managers switch to returning intents.
+4. **Army squads and micro controllers last**, one unit type at a time.
 
 Each step should leave the bot fully playable. This is incremental, not a rewrite.
