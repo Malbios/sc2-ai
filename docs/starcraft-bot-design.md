@@ -149,6 +149,11 @@ knows or cares whether a controller is scripted or learned.
   stay in that type's own action set.
 - **Scripted first.** Every learned controller has a scripted counterpart for its unit type. It is
   the baseline the model has to beat and the fallback when the model is missing or misbehaves.
+- **Only where micro pays off.** Each unit type's model is an optional experiment, not a required
+  layer. Train models for unit types where control makes a big difference (e.g. banelings,
+  mutalisks, roaches with burrow, ravagers, queens), not for ones a script handles well (e.g.
+  zerglings). A model can also cover a single decision (target choice, retreat or not) with the
+  script doing the rest. If a model never beats its script, it doesn't ship.
 - **Shared observation builder.** A fixed-size, unit-centered observation built from the World
   Model (e.g. nearest 8 enemies and allies with relative position, HP, shields, weapon cooldown,
   plus the squad's target direction). Training and live play use the exact same function, so the
