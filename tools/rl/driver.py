@@ -1,0 +1,288 @@
+"""Runs a python-sc2 game inside an event loop the caller owns, and exposes the learner's side of
+it one decision at a time.
+
+python-sc2 drives a game by calling the bot's on_step, while Gymnasium expects the trainer to call
+env.step(action). The driver joins the two: the learner bot's on_step hands each decision request
+to the driver and waits for the answer, and env.step() runs the event loop only until the next
+request. SC2 waits in between, because the game only advances after on_step returns. Everything
+stays on one thread, which python-sc2 requires (it installs a SIGINT handler when it starts SC2).
+
+One game serves many episodes. A reset kills every non-structure unit and spawns the next
+scenario, so the townhalls survive and the game never ends on its own.
+
+Several learner units ("unit cycling"): each decision request is for one unit, and the game only
+advances once every living learner unit has decided. The team reward for that game step is paid
+out on the step that let the game advance.
+"""
+
+import asyncio
+import math
+import random
+import time
+from dataclasses import dataclass, field
+
+import numpy as np
+from sc2 import maps
+from sc2.bot_ai import BotAI
+from sc2.data import Race
+from sc2.main import _host_game, _join_game
+from sc2.player import Bot
+from sc2.portconfig import Portconfig
+from sc2.position import Point2
+from sc2.sc2process import KillSwitch
+from sc2.units import Units
+
+from tools.rl.config import TrainingConfig
+from tools.rl.enemies import make_enemy_player
+from tools.rl.scenarios import Scenario, spawn_centers
+from tools.rl.task import FightSnapshot, MicroTask, life
+
+# Steps to wait for spawned units to show up before clearing and spawning again.
+SPAWN_TIMEOUT_STEPS = 25
+# How often a game may be restarted in a row before the driver gives up.
+MAX_GAME_RESTARTS = 3
+ABORT = object()
+
+
+@dataclass
+class Episode:
+    scenario: Scenario
+    phase: str = "clear"  # clear -> spawn -> wait -> fight
+    learner_center: Point2 | None = None
+    enemy_center: Point2 | None = None
+    learner_tags: set[int] = field(default_factory=set)
+    enemy_tags: set[int] = field(default_factory=set)
+    start: FightSnapshot | None = None
+    last: FightSnapshot | None = None
+    start_loop: int = 0
+    wait_steps: int = 0
+
+
+class LearnerBot(BotAI):
+    def __init__(self, driver: "GameDriver"):
+        super().__init__()
+        self.driver = driver
+
+    async def on_start(self):
+        self.client.game_step = self.driver.config.decision_interval
+        # Full vision, so both sides of a fight are always known. Fights are short-range, so this
+        # barely changes what a unit would see anyway.
+        await self.client.debug_show_map()
+
+    async def on_step(self, iteration: int):
+        await self.driver.learner_step(self)
+
+
+def _group_near(units: Units, center: Point2, expected: dict) -> Units | None:
+    """The spawned group around `center`, once every expected unit has appeared."""
+    radius = 4 + 1.5 * math.sqrt(sum(expected.values()))
+    group = units.filter(lambda unit: unit.type_id in expected and unit.distance_to(center) < radius)
+    for type_id, count in expected.items():
+        if sum(1 for unit in group if unit.type_id == type_id) < count:
+            return None
+    return group
+
+
+class GameDriver:
+    def __init__(self, config: TrainingConfig, task: MicroTask, rng: random.Random, launch_delay: float = 0.0):
+        self.config = config
+        self.task = task
+        self.rng = rng
+        self.launch_delay = launch_delay
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.game_task: asyncio.Task | None = None
+        self.events: asyncio.Queue | None = None
+        self.episode: Episode | None = None
+        self.pending_reward = 0.0
+        self._waiter: asyncio.Future | None = None
+        self._waiting_for: str | None = None  # "ready" or "decide" once the env has seen the request
+        self._zero_obs = np.zeros(task.observation_space.shape, dtype=np.float32)
+
+    # ----- learner side (runs inside the game, on the event loop) -----
+
+    async def _ask(self, event: tuple):
+        self._waiter = self.loop.create_future()
+        self.events.put_nowait(event)
+        return await self._waiter
+
+    async def learner_step(self, bot: BotAI):
+        if self.episode is None:
+            self.episode = Episode(await self._ask(("ready", None)))
+        episode = self.episode
+
+        if episode.phase == "clear":
+            doomed = bot.all_units.filter(lambda unit: unit.owner_id in (1, 2) and not unit.is_structure)
+            if doomed:
+                await bot.client.debug_kill_unit(doomed)
+            episode.phase = "spawn"
+            return
+
+        if episode.phase == "spawn":
+            center = bot.game_info.map_center
+            learner_center, enemy_center = spawn_centers((center.x, center.y), episode.scenario, self.rng)
+            episode.learner_center, episode.enemy_center = Point2(learner_center), Point2(enemy_center)
+            me, them = bot.player_id, 3 - bot.player_id
+            await bot.client.debug_create_unit(
+                [(type_id, count, episode.learner_center, me) for type_id, count in episode.scenario.learner.items()]
+                + [(type_id, count, episode.enemy_center, them) for type_id, count in episode.scenario.enemy.items()]
+            )
+            episode.phase, episode.wait_steps = "wait", 0
+            return
+
+        if episode.phase == "wait":
+            own = _group_near(bot.units, episode.learner_center, episode.scenario.learner)
+            enemies = _group_near(bot.enemy_units, episode.enemy_center, episode.scenario.enemy)
+            if own is None or enemies is None:
+                episode.wait_steps += 1
+                if episode.wait_steps > SPAWN_TIMEOUT_STEPS:
+                    episode.phase = "clear"
+                return
+            episode.learner_tags, episode.enemy_tags = own.tags, enemies.tags
+            episode.start = episode.last = FightSnapshot(life(own), life(enemies), life(own), life(enemies))
+            episode.start_loop = bot.state.game_loop
+            episode.phase = "fight"
+
+        own = bot.units.tags_in(episode.learner_tags)
+        enemies = bot.enemy_units.tags_in(episode.enemy_tags)
+        now = FightSnapshot(life(own), life(enemies), episode.start.own_start, episode.start.enemy_start)
+        self.pending_reward += self.task.reward(episode.last, now)
+        episode.last = now
+
+        outcome = None
+        if not own and not enemies:
+            outcome = "tie"
+        elif not own:
+            outcome = "loss"
+        elif not enemies:
+            outcome = "win"
+        elif (bot.state.game_loop - episode.start_loop) / 22.4 > episode.scenario.time_limit:
+            outcome = "timeout"
+        if outcome:
+            self._finish(outcome, bot.state.game_loop)
+            return
+
+        for unit in sorted(own, key=lambda u: u.tag):
+            allies = own.tags_not_in({unit.tag})
+            action = await self._ask(("decide", self.task.observe(unit, allies, enemies)))
+            if action is ABORT:
+                self.episode = None
+                return
+            self.task.apply(unit, int(action), allies, enemies)
+
+    def _finish(self, outcome: str, game_loop: int):
+        episode = self.episode
+        self.pending_reward += self.task.terminal_reward("tie" if outcome == "timeout" else outcome)
+        self.events.put_nowait(("end", {
+            "scenario": episode.scenario.name,
+            "outcome": outcome,
+            "damage_dealt": 1 - episode.last.enemy_life / max(episode.start.enemy_start, 1.0),
+            "damage_taken": 1 - episode.last.own_life / max(episode.start.own_start, 1.0),
+            "game_seconds": (game_loop - episode.start_loop) / 22.4,
+        }))
+        self.episode = None
+
+    # ----- env side (called by the Gymnasium env, runs the loop until the next event) -----
+
+    def _start_game(self):
+        if self.launch_delay:
+            time.sleep(self.launch_delay)  # SC2 processes started at the same instant fail on Linux
+            self.launch_delay = 0.0
+        self.events = asyncio.Queue()
+        self.episode = None
+        self._waiter, self._waiting_for = None, None
+
+        learner = Bot(Race[self.config.learner.race], LearnerBot(self), name="Learner")
+        enemy = make_enemy_player(self.config.enemy, self.config.decision_interval)
+        game_map = maps.get(self.config.map)
+
+        if isinstance(enemy, Bot):
+            portconfig = Portconfig()
+            players = [learner, enemy]
+
+            async def both_clients():
+                return await asyncio.gather(
+                    _host_game(game_map, players, portconfig=portconfig),
+                    _join_game(players, realtime=False, portconfig=portconfig),
+                )
+
+            self.game_task = self.loop.create_task(both_clients())
+        else:
+            self.game_task = self.loop.create_task(_host_game(game_map, [learner, enemy]))
+
+    def _next_event(self) -> tuple[str, object]:
+        async def wait():
+            getter = asyncio.ensure_future(self.events.get())
+            done, _ = await asyncio.wait({getter, self.game_task}, return_when=asyncio.FIRST_COMPLETED)
+            if getter in done:
+                return getter.result()
+            getter.cancel()
+            return ("game_over", None)
+
+        kind, payload = self.loop.run_until_complete(wait())
+        if kind == "game_over" and not self.game_task.cancelled() and self.game_task.exception():
+            raise RuntimeError("the SC2 game crashed") from self.game_task.exception()
+        if kind in ("ready", "decide"):
+            self._waiting_for = kind
+        return kind, payload
+
+    def _answer(self, value):
+        self._waiter.set_result(value)
+        self._waiting_for = None
+
+    def reset(self, scenario: Scenario) -> np.ndarray:
+        """Start a fight in `scenario` and return the first unit's observation."""
+        restarts = 0
+        if self.game_task is None or self.game_task.done():
+            self._start_game()
+
+        sent = False
+        if self._waiting_for == "decide":
+            self._answer(ABORT)
+        elif self._waiting_for == "ready":
+            self._answer(scenario)
+            sent = True
+
+        while True:
+            kind, payload = self._next_event()
+            if kind == "game_over":
+                restarts += 1
+                if restarts > MAX_GAME_RESTARTS:
+                    raise RuntimeError(f"the SC2 game ended {restarts} times in a row during reset")
+                self._start_game()
+                sent = False
+            elif kind == "ready":
+                self._answer(scenario)
+                sent = True
+            elif kind == "decide":
+                if sent:
+                    self.pending_reward = 0.0
+                    return payload
+                self._answer(ABORT)
+            # "end" events of an episode that was already over are skipped
+
+    def step(self, action: int):
+        """Gymnasium step: (observation, reward, terminated, truncated, info)."""
+        if self._waiting_for != "decide":
+            raise RuntimeError("step() called without a pending decision; call reset() first")
+        self._answer(action)
+        kind, payload = self._next_event()
+        reward, self.pending_reward = self.pending_reward, 0.0
+
+        if kind == "decide":
+            return payload, reward, False, False, {}
+        if kind == "end":
+            timed_out = payload["outcome"] == "timeout"
+            return self._zero_obs, reward, not timed_out, timed_out, payload
+        return self._zero_obs, reward, False, True, {"outcome": "game_over"}
+
+    def close(self):
+        # Cancelling the game makes python-sc2 shut its SC2 processes down; cancelling everything
+        # else (e.g. aiohttp's connection cleanup) keeps asyncio from warning about pending tasks.
+        pending = asyncio.all_tasks(self.loop)
+        for task in pending:
+            task.cancel()
+        self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+        KillSwitch.kill_all()
+        self.loop.close()
