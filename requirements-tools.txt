@@ -1,0 +1,13 @@
+# Extra dependencies for tools/ (batch runner, RL training). The bot itself only needs
+# requirements.txt.
+#
+# Install torch first from the CPU-only index, otherwise pip pulls the multi-GB CUDA build:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# then:
+#   pip install -r requirements.txt -r requirements-tools.txt
+
+# tools/rl uses python-sc2's private _host_game/_join_game, so the version is pinned.
+burnysc2==7.3.0
+gymnasium
+stable-baselines3
+pyyaml

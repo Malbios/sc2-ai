@@ -22,3 +22,7 @@ ENV/
 # IDE
 .idea/
 .vscode/
+
+# Tool output (batch runs, trained models)
+runs/
+models/
