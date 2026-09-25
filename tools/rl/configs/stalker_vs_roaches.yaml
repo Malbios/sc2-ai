@@ -1,0 +1,33 @@
+# First milestone: 1 stalker learns to beat 2 roaches (by kiting: the stalker is faster and
+# outranges them).
+#
+#   python -m tools.rl.train --config tools/rl/configs/stalker_vs_roaches.yaml --timesteps 200000 --out models/stalker
+
+map: Flat64                  # a .SC2Map under ~/StarCraftII/Maps
+decision_interval: 4         # game frames between decisions (22.4 frames = 1 game second)
+
+learner:
+  race: Terran               # the player's race; spawned units can be of any race.
+                             # Terran avoids Zerg larva and Protoss probes getting in the way.
+  task: tools.rl.examples.kite_task:KiteTask
+
+enemy:
+  mode: scripted             # builtin | scripted | frozen
+  race: Terran
+  difficulty: VeryEasy       # builtin only
+  task: tools.rl.examples.kite_task:KiteTask   # frozen and self-play: the enemy's task
+  # model: models/roach/final.zip              # frozen: the enemy's trained model
+
+scenarios:
+  - name: stalker_vs_2_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 2}
+    distance: [9, 11]        # between the groups at spawn (stalker range 6, roach range 4)
+    time_limit: 60           # game seconds, then a tie (perfect kiting needs ~25s of shooting)
+    weight: 1
+
+# Self-play: uncomment to have both sides learn. Each round trains one side against a frozen copy
+# of the other, then they swap. Uses two SC2 clients per environment.
+# self_play:
+#   rounds: 6
+#   steps_per_round: 30000

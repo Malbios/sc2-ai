@@ -45,6 +45,24 @@ per-game `logs/` and `meta.json` (commit, dirty flag, config). "Dirty" means the
 uncommitted changes to tracked files, so the commit alone doesn't describe what played. The
 replays open in sc2-observer.
 
+## Training micro models
+
+```
+python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --random            # baseline
+python -m tools.rl.train    --config tools/rl/configs/stalker_vs_roaches.yaml --timesteps 200000 --out models/stalker
+python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --model models/stalker/final.zip
+```
+
+- `--timesteps` counts decisions, not fights. A fight is roughly 50 to 300 decisions per unit.
+- `--n-envs` sets how many games train in parallel (default 4). Measured on 8 cores: 4 games with a
+  scripted enemy (two SC2 processes each) use all cores and make about 160 decisions per second.
+- `--resume models/stalker/final.zip` continues training an existing model.
+- While training, the log prints `fights/<scenario>/win_rate` and `damage_traded` over the last
+  100 fights; `models/<name>/logs/progress.csv` has the same numbers for plotting.
+- The output folder holds `final.zip` (the model), `checkpoints/` and a copy of the config.
+- With `self_play` in the config, both sides train in turns, and each side gets its own folder
+  (`a/`, `b/`) with a `final.zip`.
+
 ## Long runs
 
 Start a tmux session, run the command inside it, then detach with `Ctrl+b d`:
