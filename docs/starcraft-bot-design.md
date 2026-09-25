@@ -121,8 +121,7 @@ domain.
 ## Arbiter / Resource Manager
 
 Managers compete for the same minerals and the same units. Without an arbiter, a drone gets pulled
-to build, mine and defend in the same frame. This layer takes over the old "Mastermind" job of
-resolving conflicts, and gives "keeping the layers in sync" a concrete meaning.
+to build, mine and defend in the same frame. This layer resolves those conflicts.
 
 - **Unit ownership:** every unit belongs to exactly one manager. Transfers are explicit (e.g.
   Production borrows a drone from Economy to build, then hands it back).
