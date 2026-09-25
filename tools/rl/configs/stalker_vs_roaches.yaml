@@ -3,7 +3,8 @@
 #
 #   python -m tools.rl.train --config tools/rl/configs/stalker_vs_roaches.yaml --timesteps 200000 --out models/stalker
 
-map: Flat64                  # a .SC2Map under ~/StarCraftII/Maps
+map: Flat128                 # a .SC2Map under ~/StarCraftII/Maps. Kiting needs room: on Flat64 even
+                             # a hand-written kiting rule gets cornered (5/8 wins vs 8/8 here)
 decision_interval: 4         # game frames between decisions (22.4 frames = 1 game second)
 
 learner:
