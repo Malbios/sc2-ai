@@ -95,7 +95,7 @@ A small, slow-changing layer that picks a plan for the current game state and ex
 goals, e.g. "2-base, target roach-ling, expand at 3:00, defend until 8 roaches."
 
 - Where am I in the tech tree?
-- What have my opponents been doing, this game and in earlier games?
+- What has my opponent been doing this game?
 - Am I on the losing side?
 - Should I defend or push?
 
@@ -106,9 +106,8 @@ goals, e.g. "2-base, target roach-ling, expand at 3:00, defend until 8 roaches."
   `should_train_overlord`, `should_train_zergling`, `should_build_spawning_pool` and the
   "idle zerglings attack the enemy start" rule are all Strategy decisions, made directly against
   `self.*` state and executed immediately instead of returned as goals.
-- **Open questions:** remembering opponent behavior across games against the same opponent needs
-  storage outside the game (a file per opponent is the simple start). Nothing persists across games
-  today.
+- **Out of scope:** remembering opponent behavior across games. Opponent play varies too much from
+  game to game for it to be reliable, so every game starts fresh.
 
 ## Managers
 
