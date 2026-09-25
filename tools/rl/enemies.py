@@ -29,8 +29,9 @@ class ScriptedEnemyBot(BotAI):
         self.decision_interval = decision_interval
 
     async def on_start(self):
+        # No debug_show_map here: the learner already turned on full vision for the whole game,
+        # and a second call would turn it off again.
         self.client.game_step = self.decision_interval
-        await self.client.debug_show_map()
 
     async def on_step(self, iteration: int):
         targets = fighters(self.enemy_units)
@@ -52,8 +53,7 @@ class FrozenEnemyBot(BotAI):
         self.model = PPO.load(model_path, device="cpu")
 
     async def on_start(self):
-        self.client.game_step = self.decision_interval
-        await self.client.debug_show_map()
+        self.client.game_step = self.decision_interval  # no debug_show_map, see ScriptedEnemyBot
 
     async def on_step(self, iteration: int):
         own = fighters(self.units)

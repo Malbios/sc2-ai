@@ -52,6 +52,9 @@ class Episode:
     enemy_center: Point2 | None = None
     learner_tags: set[int] = field(default_factory=set)
     enemy_tags: set[int] = field(default_factory=set)
+    dead_enemies: set[int] = field(default_factory=set)
+    enemy_life: dict[int, float] = field(default_factory=dict)  # last known, per tag
+    unseen_steps: int = 0  # steps where a living enemy of the fight was out of sight
     start: FightSnapshot | None = None
     last: FightSnapshot | None = None
     start_loop: int = 0
@@ -66,7 +69,8 @@ class LearnerBot(BotAI):
     async def on_start(self):
         self.client.game_step = self.driver.config.decision_interval
         # Full vision, so both sides of a fight are always known. Fights are short-range, so this
-        # barely changes what a unit would see anyway.
+        # barely changes what a unit would see anyway. Only the learner may send this: it's one
+        # toggle for the whole game, so a second client sending it turns vision off again.
         await self.client.debug_show_map()
 
     async def on_step(self, iteration: int):
@@ -143,18 +147,28 @@ class GameDriver:
             episode.start_loop = bot.state.game_loop
             episode.phase = "fight"
 
+        # An enemy only counts as dead when SC2 reports its death. One that is merely out of sight
+        # keeps its last known life, so running away can never look like winning.
+        episode.dead_enemies |= bot.state.dead_units & episode.enemy_tags
+        living_enemy_tags = episode.enemy_tags - episode.dead_enemies
+        enemies = bot.enemy_units.tags_in(living_enemy_tags)
+        for enemy in enemies:
+            episode.enemy_life[enemy.tag] = enemy.health + enemy.shield
+        if len(enemies) < len(living_enemy_tags):
+            episode.unseen_steps += 1
+        enemy_life = sum(episode.enemy_life[tag] for tag in living_enemy_tags)
+
         own = bot.units.tags_in(episode.learner_tags)
-        enemies = bot.enemy_units.tags_in(episode.enemy_tags)
-        now = FightSnapshot(life(own), life(enemies), episode.start.own_start, episode.start.enemy_start)
+        now = FightSnapshot(life(own), enemy_life, episode.start.own_start, episode.start.enemy_start)
         self.pending_reward += self.task.reward(episode.last, now)
         episode.last = now
 
         outcome = None
-        if not own and not enemies:
+        if not own and not living_enemy_tags:
             outcome = "tie"
         elif not own:
             outcome = "loss"
-        elif not enemies:
+        elif not living_enemy_tags:
             outcome = "win"
         elif (bot.state.game_loop - episode.start_loop) / 22.4 > episode.scenario.time_limit:
             outcome = "timeout"
@@ -179,6 +193,7 @@ class GameDriver:
             "damage_dealt": 1 - episode.last.enemy_life / max(episode.start.enemy_start, 1.0),
             "damage_taken": 1 - episode.last.own_life / max(episode.start.own_start, 1.0),
             "game_seconds": (game_loop - episode.start_loop) / 22.4,
+            "unseen_steps": episode.unseen_steps,  # should stay 0 with full vision
         }))
         self.episode = None
 
