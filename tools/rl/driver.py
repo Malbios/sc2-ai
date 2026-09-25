@@ -186,7 +186,7 @@ class GameDriver:
 
     def _finish(self, outcome: str, game_loop: int):
         episode = self.episode
-        self.pending_reward += self.task.terminal_reward("tie" if outcome == "timeout" else outcome)
+        self.pending_reward += self.task.terminal_reward(outcome)
         self.events.put_nowait(("end", {
             "scenario": episode.scenario.name,
             "outcome": outcome,

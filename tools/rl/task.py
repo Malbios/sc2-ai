@@ -48,5 +48,6 @@ class MicroTask:
         return dealt - taken
 
     def terminal_reward(self, outcome: str) -> float:
-        """Extra reward when a fight ends: 'win', 'loss' or 'tie'."""
+        """Extra reward when a fight ends: 'win', 'loss', 'tie' (both sides died) or 'timeout'
+        (the scenario's time limit ran out)."""
         return {"win": 1.0, "loss": -1.0}.get(outcome, 0.0)

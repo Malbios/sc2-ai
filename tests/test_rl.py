@@ -104,7 +104,13 @@ class RewardTest(unittest.TestCase):
 
     def test_terminal(self):
         task = MicroTask()
-        self.assertEqual([task.terminal_reward(o) for o in ("win", "loss", "tie")], [1.0, -1.0, 0.0])
+        self.assertEqual([task.terminal_reward(o) for o in ("win", "loss", "tie", "timeout")], [1.0, -1.0, 0.0, 0.0])
+
+    def test_kite_task_punishes_timeouts(self):
+        from tools.rl.examples.kite_task import KiteTask
+
+        self.assertEqual(KiteTask().terminal_reward("timeout"), -1.0)
+        self.assertEqual(KiteTask().terminal_reward("tie"), 0.0)
 
 
 if __name__ == "__main__":
