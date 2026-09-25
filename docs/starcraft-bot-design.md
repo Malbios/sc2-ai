@@ -58,8 +58,6 @@ Rules that keep the layers honest:
 Connects to SC2, advances the game, and turns observations into state and actions into requests.
 
 - **Input / output:** raw protobuf on the wire; `BotAI` state and action calls on the Python side.
-- **Today:** fully handled by python-sc2. `run.py` and `setup.py` connect with
-  `play_from_websocket`, and `CompetitiveBot` subclasses `BotAI`. There's nothing to build here.
 - **Notes:** step mode is deterministic and is what ladders use, so it's the right default for
   testing. Realtime mode is for playing against humans. The two-host LAN setup is the one unusual
   part of this layer; keep connection logic in `run.py`/`setup.py`, not in the bot.
@@ -83,8 +81,6 @@ stateless, but the bot needs memory, so this layer is where state persists withi
 - **Input:** `BotAI` state each step.
 - **Output:** a world-state object that Strategy, managers and the Arbiter read. Other layers
   never write to it.
-- **Today:** doesn't exist as a separate step. `bot.py` reads `self.units`, `self.townhalls`,
-  `self.gas_buildings`, etc. inline wherever it needs them (e.g. `ideal_worker_count`).
 - **Open questions:** clustering and strength estimation need actual algorithms; nothing like that
   exists yet, so this layer has the most net-new logic. python-sc2 already covers expansion
   locations and basic pathing; chokes and regions may need a map-analysis library.
@@ -102,10 +98,6 @@ goals, e.g. "2-base, target roach-ling, expand at 3:00, defend until 8 roaches."
 - **Input:** the World Model.
 - **Output:** goals for the managers (target composition, economy targets, posture, timings).
 - **Build orders:** keep them data-driven (YAML or JSON) so they can change without code changes.
-- **Today:** most of what `on_step` currently does inline. `should_train_drone`,
-  `should_train_overlord`, `should_train_zergling`, `should_build_spawning_pool` and the
-  "idle zerglings attack the enemy start" rule are all Strategy decisions, made directly against
-  `self.*` state and executed immediately instead of returned as goals.
 - **Out of scope:** remembering opponent behavior across games. Opponent play varies too much from
   game to game for it to be reliable, so every game starts fresh.
 
@@ -127,8 +119,6 @@ domain.
 - **Input:** goals from Strategy, plus the World Model.
 - **Output:** intents such as "train 2 drones", "build spawning pool near main", "squad A attack
   position P". Intents are requests; the Arbiter decides which ones happen.
-- **Today:** the idle-zergling `attack()` block in `on_step` is the only unit-control logic, and
-  it's a placeholder: one blanket attack order per unit, no per-ability or per-matchup behavior.
 
 ## Arbiter / Resource Manager
 
@@ -144,8 +134,6 @@ resolving conflicts, and gives "keeping the layers in sync" a concrete meaning.
   production > economy), and losing intents are dropped or deferred to the next step.
 - **Input:** all managers' intents, plus the World Model.
 - **Output:** the approved subset of intents, as actions for the Executor.
-- **Today:** doesn't exist. The order of the if/elif chain in `on_step` is the current, implicit
-  arbitration.
 
 ## Action Executor
 
@@ -156,8 +144,6 @@ Turns approved actions into python-sc2 calls.
 - Merges duplicate actions from the same step.
 - **Input:** approved actions from the Arbiter.
 - **Output:** `self.train(...)`, `await self.build(...)`, `unit.attack(...)`, ability usage.
-- **Today:** `train_if_affordable` and `build_if_affordable` in `bot/bot.py` are already close to
-  this shape: small, focused execution helpers.
 
 ## Cross-cutting concerns
 
