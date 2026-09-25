@@ -1,136 +1,190 @@
-# A "thinking" StarCraft II bot
+# StarCraft II bot architecture
 
 ## Concept
 
 Right now the bot is one function: `CompetitiveBot.on_step` in `bot/bot.py` reads game state,
 decides what to build, and issues actions all in the same if/elif ladder. That works while the
-bot only knows a handful of rules, but it doesn't scale: every new rule has to know about every
-other rule's state, and there's no single place that could answer "what is this bot actually
-trying to do right now?"
+bot only knows a handful of rules, but it doesn't scale. Every new rule has to know about every
+other rule's state, two rules can grab the same worker or spend the same minerals in one frame,
+and there's no single place that could answer "what is this bot actually trying to do right now?"
 
-The idea below splits that one function into four narrower jobs, each of which only has to reason
-about its own layer, plus one coordinator that keeps them in sync frame to frame. This doc records
-the intent and a rough target shape for that split. It is not a refactor commitment: the current
-`bot.py` keeps working as-is until pieces are pulled out deliberately, one at a time.
+The design below splits that work into layers that run in a fixed order once per game step.
+Each layer only talks to the one next to it, and decisions get more concrete as they move down:
+perception, then goals, then intents, then approved actions, then API calls. This doc records the
+intent and target shape. It is not a refactor commitment: `bot.py` keeps working as-is until
+pieces are pulled out deliberately, one at a time.
 
 ## Data flow, once per step
 
 ```
-on_step
-  -> Vision.observe(bot)        produces a world-state snapshot
-  -> Mastermind.decide(world)   asks Strategy for the current plan
-       -> Strategy.evaluate(world)   returns a set of intents (build X, defend, push, ...)
-  -> Mastermind.act(intents, world)  hands intents to Micro
-       -> Micro.execute(intents, world)   issues the actual python-sc2 calls
+                 ┌──────────────────────────────┐
+                 │  Game Interface (transport)  │  python-sc2: connect, step loop,
+                 └──────────────┬───────────────┘  protobuf in/out
+                                │ raw observation
+                 ┌──────────────▼───────────────┐
+                 │  World Model (perception)    │  typed units, memory of enemies
+                 │  + Map Analysis (static)     │  in fog, clusters, relative strength
+                 └──────────────┬───────────────┘
+                                │ read-only state
+                 ┌──────────────▼───────────────┐
+                 │  Strategy                    │  "what are we trying to do":
+                 └──────────────┬───────────────┘  build order, army mix, posture
+                                │ goals
+    ┌───────────┬───────────────┼──────────────┬─────────────┐
+    ▼           ▼               ▼              ▼             ▼
+ Economy    Production       Army/Tactics    Scouting     (Tech, Supply...)
+ (workers)  (build/train)    (squads→micro)
+    └───────────┴───────────────┼──────────────┴─────────────┘
+                                │ intents (requests, not commands)
+                 ┌──────────────▼───────────────┐
+                 │  Arbiter / Resource Manager  │  unit ownership, mineral/gas
+                 └──────────────┬───────────────┘  reservations, priority
+                                │ approved actions
+                 ┌──────────────▼───────────────┐
+                 │  Action Executor             │  dedupe, skip redundant orders,
+                 └──────────────────────────────┘  issue python-sc2 calls
 ```
 
-Vision and Strategy only ever read state; Micro is the only layer that calls action APIs like
-`self.train(...)`, `self.build(...)`, `unit.attack(...)`. Mastermind is the only layer that calls
-the other three — Vision, Strategy, and Micro never call each other directly.
+Rules that keep the layers honest:
 
-![](image-3.png)
+- The World Model is the only thing that reads raw `BotAI` state (`self.units`, `self.structures`,
+  `self.enemy_units`, ...). Everything else reads the World Model.
+- Strategy and the managers never call action APIs. They return goals and intents.
+- The Executor is the only layer that calls `self.train(...)`, `self.build(...)`,
+  `unit.attack(...)` and ability usage.
 
-## Mastermind (Coordinator)
+## Game Interface
 
-Keeps the other three layers in sync. It runs once per `on_step`, in the fixed order shown above,
-and is the arbiter when layers disagree — e.g. Strategy wants to expand but Micro reports no idle
-worker is available, or Strategy calls for a push while Vision's world-state says a bigger enemy
-army just became visible near home.
+Connects to SC2, advances the game, and turns observations into state and actions into requests.
 
-- **Input:** nothing of its own — it just wires Vision -> Strategy -> Micro together each step.
-- **Output:** nothing directly; its job is sequencing and conflict resolution, not decisions.
-- **Today:** doesn't exist as a concept. `on_step` itself is the de facto coordinator — the order
-  of the if/elif chain in `bot/bot.py` *is* the current (implicit) arbitration logic.
-- **Open question:** what does "keep in sync" mean concretely beyond ordering? At minimum it needs
-  to detect stale/conflicting intents (Strategy asking for something Micro can't currently do) and
-  either drop, defer, or re-ask for a decision — that policy isn't designed yet.
+- **Input / output:** raw protobuf on the wire; `BotAI` state and action calls on the Python side.
+- **Today:** fully handled by python-sc2. `run.py` and `setup.py` connect with
+  `play_from_websocket`, and `CompetitiveBot` subclasses `BotAI`. There's nothing to build here.
+- **Notes:** step mode is deterministic and is what ladders use, so it's the right default for
+  testing. Realtime mode is for playing against humans. The two-host LAN setup is the one unusual
+  part of this layer; keep connection logic in `run.py`/`setup.py`, not in the bot.
 
-![](image-1.png)
+## World Model + Map Analysis
 
-## Decide (Macro Strategy)
+Turns raw observation into something the other layers can use without each of them re-deriving
+it from `self.units`/`self.enemy_units`/`self.structures` on its own. Raw observations are
+stateless, but the bot needs memory, so this layer is where state persists within a game.
 
-Picks a plan for the current game state and expresses it as intents (e.g. "expand", "build
-spawning pool", "defend home", "push with current army") rather than executing anything itself.
+- **Dynamic state (every step):**
+  - own units, structures, economy, tech, and pending orders (e.g. "a drone is already on its
+    way to build a spawning pool, don't send a second one")
+  - enemy units and structures, including ones last seen in fog of war, with when and where
+  - clusters of units, and an estimate of enemy strength per cluster
+  - relative strength (army value, economy, tech) so Strategy can ask "am I on the losing side?"
+  - a history of what has happened this game (timings seen, attacks, losses) that Strategy can
+    categorize
+- **Static map analysis (once at game start):** expansion locations, regions, chokes, ramps,
+  pathing.
+- **Input:** `BotAI` state each step.
+- **Output:** a world-state object that Strategy, managers and the Arbiter read. Other layers
+  never write to it.
+- **Today:** doesn't exist as a separate step. `bot.py` reads `self.units`, `self.townhalls`,
+  `self.gas_buildings`, etc. inline wherever it needs them (e.g. `ideal_worker_count`).
+- **Open questions:** clustering and strength estimation need actual algorithms; nothing like that
+  exists yet, so this layer has the most net-new logic. python-sc2 already covers expansion
+  locations and basic pathing; chokes and regions may need a map-analysis library.
+
+## Strategy
+
+A small, slow-changing layer that picks a plan for the current game state and expresses it as
+goals, e.g. "2-base, target roach-ling, expand at 3:00, defend until 8 roaches."
 
 - Where am I in the tech tree?
-- What have my opponents been doing?
-- Historical categorization of what has been happening
+- What have my opponents been doing, this game and in earlier games?
 - Am I on the losing side?
 - Should I defend or push?
 
-- **Input:** the world-state snapshot from Vision (own tech/army/economy state, visible enemy
-  state, map info).
-- **Output:** a set of intents for Micro to carry out.
-- **Today:** this is most of what `on_step` currently does inline —
-  `should_train_overlord`/`should_train_zergling`/`should_build_spawning_pool`/`should_train_drone`
-  and the "12 idle zerglings -> attack enemy start" rule are all Strategy decisions, just made
-  directly against `self.*` state instead of against a Vision snapshot, and executed immediately
-  instead of returned as an intent.
-- **Open questions:** "am I on the losing side?" needs some notion of relative strength (army value,
-  economy, tech) — nothing tracks this yet. "Historical categorization of what has been happening"
-  and "what have my opponents been doing" imply persisting observations across steps (and ideally
-  across games against the same opponent) — there's no storage for this today; everything in
-  `bot.py` is recomputed fresh from live game state every step.
+- **Input:** the World Model.
+- **Output:** goals for the managers (target composition, economy targets, posture, timings).
+- **Build orders:** keep them data-driven (YAML or JSON) so they can change without code changes.
+- **Today:** most of what `on_step` currently does inline. `should_train_drone`,
+  `should_train_overlord`, `should_train_zergling`, `should_build_spawning_pool` and the
+  "idle zerglings attack the enemy start" rule are all Strategy decisions, made directly against
+  `self.*` state and executed immediately instead of returned as goals.
+- **Open questions:** remembering opponent behavior across games against the same opponent needs
+  storage outside the game (a file per opponent is the simple start). Nothing persists across games
+  today.
 
-![](image-2.png)
+## Managers
 
-## Act (Micro)
+Domain specialists that turn Strategy's goals into intents. Each one only reasons about its own
+domain.
 
-Turns intents into concrete game actions. The long-term goal stated for this layer is that for
-every ability of every unit there's an explicit instruction on how to use it effectively — i.e.
-this is where unit-level tactics (when to burrow, when to kite, when to focus-fire, when to split
-against splash) eventually live, not just "attack-move at a location."
+- **Economy:** worker saturation, gas, transfers between bases, long-distance mining.
+- **Production:** building placement, training, upgrades, supply (overlords).
+- **Army / Tactics:** groups units into squads and gives each squad a task (defend, attack,
+  harass). Per-unit control is delegated to micro controllers.
+- **Micro controllers:** the long-term goal is that for every ability of every unit there's an
+  explicit instruction on how to use it well: when to burrow, when to kite, when to focus-fire,
+  when to split against splash. Controllers are per unit type (or per ability), so they can be
+  added one at a time.
+- **Scouting:** keeps the World Model fresh, especially about enemy tech and expansions.
 
-- **Input:** the intents from Strategy (via Mastermind) plus the world-state snapshot (unit
-  positions, cooldowns, enemy composition).
-- **Output:** actual `python-sc2` calls — `self.train(...)`, `await self.build(...)`,
-  `unit.attack(...)`, ability usage.
+- **Input:** goals from Strategy, plus the World Model.
+- **Output:** intents such as "train 2 drones", "build spawning pool near main", "squad A attack
+  position P". Intents are requests; the Arbiter decides which ones happen.
+- **Today:** the idle-zergling `attack()` block in `on_step` is the only unit-control logic, and
+  it's a placeholder: one blanket attack order per unit, no per-ability or per-matchup behavior.
+
+## Arbiter / Resource Manager
+
+Managers compete for the same minerals and the same units. Without an arbiter, a drone gets pulled
+to build, mine and defend in the same frame. This layer takes over the old "Mastermind" job of
+resolving conflicts, and gives "keeping the layers in sync" a concrete meaning.
+
+- **Unit ownership:** every unit belongs to exactly one manager. Transfers are explicit (e.g.
+  Production borrows a drone from Economy to build, then hands it back).
+- **Resource reservation:** Production reserves the cost of a building when it commits to it, not
+  when the build command lands, so other managers can't spend the same minerals meanwhile.
+- **Priority:** when intents conflict, a fixed priority order decides (e.g. defense > supply >
+  production > economy), and losing intents are dropped or deferred to the next step.
+- **Input:** all managers' intents, plus the World Model.
+- **Output:** the approved subset of intents, as actions for the Executor.
+- **Today:** doesn't exist. The order of the if/elif chain in `on_step` is the current, implicit
+  arbitration.
+
+## Action Executor
+
+Turns approved actions into python-sc2 calls.
+
+- Skips orders a unit already has. Re-issuing the same command every step resets unit behavior
+  and wastes actions.
+- Merges duplicate actions from the same step.
+- **Input:** approved actions from the Arbiter.
+- **Output:** `self.train(...)`, `await self.build(...)`, `unit.attack(...)`, ability usage.
 - **Today:** `train_if_affordable` and `build_if_affordable` in `bot/bot.py` are already close to
-  the target shape for this layer — small, focused execution helpers. The "send idle zerglings to
-  attack enemy start location" block is the only real unit-control logic that exists so far, and
-  it's a placeholder: one blanket `attack()` order per unit, no per-ability or per-matchup
-  behavior yet.
-- **Open question:** none of the "instruction per ability" behavior exists yet for any unit type —
-  this layer today only knows how to train/build/attack-move.
+  this shape: small, focused execution helpers.
 
-![](image.png)
+## Cross-cutting concerns
 
-## See (Perception)
-
-Reads the map and turns raw observation into something the other layers can use without each of
-them re-deriving it from `self.units`/`self.enemy_units`/`self.structures` independently.
-
-- Clusters of units
-- Understanding enemy strength when they see clusters
-- How it sees the map
-- Funneling the info into a way that is easy to parse
-
-- **Input:** whatever `BotAI` exposes per step (own units/structures, currently-visible enemy
-  units/structures, map data).
-- **Output:** a world-state snapshot object that Strategy and Micro both read from.
-- **Today:** doesn't exist as a separate step. `bot.py` calls `self.units`, `self.townhalls`,
-  `self.gas_buildings`, etc. directly and inline (e.g. `ideal_worker_count`), scattered across
-  whichever method happens to need them.
-- **Open questions:** "clusters of units" and "understanding enemy strength when they see clusters"
-  both need an actual grouping/strength-estimation algorithm — nothing like that exists yet, so
-  this is the layer with the most net-new logic to design, not just extract from `bot.py`.
+- **Frame budget.** Expensive work (pathing, clustering, influence maps) runs every N steps or is
+  spread across steps, not every step.
+- **Debug drawing.** SC2 can draw text, spheres and lines in-game. Use it from the start to show
+  squad targets, reserved building spots and threat levels.
+- **Testability.** If Strategy and the managers are close to pure functions of the World Model,
+  they can be unit-tested against saved observations without launching SC2.
+- **Replays and decision logs.** Log every Strategy decision with a game timestamp. Watching a
+  replay next to the log is the main debugging tool.
 
 ## Suggested build order
 
-The project is early-stage and `bot.py` currently plays a full game end-to-end, so the goal is to
-peel layers out one at a time without ever leaving the bot in a non-working state:
+The goal is to peel layers out of `bot.py` one at a time without ever leaving the bot unable to
+play a full game.
 
-1. **Vision first.** Introduce a `WorldState`-style snapshot object built once per step from
-   existing `BotAI` state. Nothing behavioral changes yet — `bot.py` just reads from the snapshot
-   instead of `self.*` directly.
-2. **Micro next.** `train_if_affordable`/`build_if_affordable` already fit; move them (and the
-   idle-zergling attack logic) into a dedicated module that takes intents in, rather than being
-   called inline from `on_step`.
-3. **Strategy third.** Replace the `should_train_*`/`should_build_*` if/elif ladder with a function
-   that reads the Vision snapshot and returns intents, instead of deciding-and-acting inline.
-4. **Mastermind last.** Once Vision/Strategy/Micro exist as separate pieces with a clean intent
-   boundary between Strategy and Micro, wire them together behind a thin coordinator and shrink
-   `on_step` down to calling it.
+1. **World Model first.** Build a world-state object once per step from existing `BotAI` state.
+   Nothing behavioral changes; `bot.py` reads the snapshot instead of `self.*`.
+2. **Executor next.** Move `train_if_affordable`/`build_if_affordable` into a module that takes
+   actions in, instead of being called inline from `on_step`.
+3. **Economy manager + data-driven build order.** Replace the `should_train_*`/`should_build_*`
+   ladder with a build order file that Strategy reads and an Economy/Production manager that
+   returns intents. This is the thin vertical slice: economy, one build order, and "attack-move at
+   supply 100".
+4. **Arbiter** once a second manager needs workers or minerals.
+5. **Army squads and micro controllers last**, one unit type at a time.
 
-Each step should leave `bot.py` fully playable — this is meant as an incremental extraction, not a
-rewrite.
+Each step should leave `bot.py` fully playable. This is an incremental extraction, not a rewrite.
