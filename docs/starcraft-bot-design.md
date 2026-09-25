@@ -144,12 +144,17 @@ knows or cares whether a controller is scripted or learned.
 
 - **One controller interface.** A controller takes its units, the squad's task and the World Model,
   and returns orders. Scripted and learned controllers for the same unit type are interchangeable.
+- **One model per own unit type** ("zergling model", "roach model", ...). Each unit decides for
+  itself based on its surroundings, so one model handles any composition. Unit-specific abilities
+  stay in that type's own action set.
 - **Scripted first.** Every learned controller has a scripted counterpart for its unit type. It is
   the baseline the model has to beat and the fallback when the model is missing or misbehaves.
 - **Shared observation builder.** A fixed-size, unit-centered observation built from the World
   Model (e.g. nearest 8 enemies and allies with relative position, HP, shields, weapon cooldown,
   plus the squad's target direction). Training and live play use the exact same function, so the
-  model never sees different inputs in real games than it was trained on.
+  model never sees different inputs in real games than it was trained on. It must contain whatever
+  tells situations apart: unit types, relevant buffs (e.g. stim), and a view range that covers the
+  longest-ranged threats (a sieged tank hits from 13).
 - **Discrete actions.** The model picks from a small set (attack nearest, attack weakest, retreat,
   move toward squad target, hold, unit-specific abilities like burrow). The controller maps the
   choice to python-sc2 commands. This keeps models tiny and their output limited to orders the
@@ -160,13 +165,25 @@ knows or cares whether a controller is scripted or learned.
 
 Training lives outside the bot:
 
-- A separate training setup runs SC2 in step mode on small custom scenario maps (e.g. "8 roaches
-  vs 6 marauders"), using python-sc2 and the same observation builder, action mapping and
-  controller as the bot.
+- A separate training setup in this repo runs SC2 natively on a Linux machine (no Docker), in step
+  mode, using python-sc2 and the same observation builder, action mapping and controller as the
+  bot. The model decides every few game frames (python-sc2's `game_step`), not every frame.
+- Learning method: PPO from Stable-Baselines3, with environments in the Gymnasium format.
 - Reward is roughly damage dealt minus damage taken, plus a bonus for winning the fight.
+- **Randomized scenarios.** Each training round samples a scenario (unit types, counts, uneven
+  fights, start positions) from a weighted list. The weights decide whether training goes step by
+  step (1v1 first) or mixed from the start; that is a setting to try, not a fixed choice. Easy
+  scenarios stay in the mix so the model doesn't forget them.
+- **Enemy control**, all three available from the start:
+  - built-in AI
+  - a simple scripted enemy (predictable, for clear small scenarios)
+  - a frozen copy of a model (self-play: one side learns while the other stays fixed, and they swap
+    periodically). Needs one SC2 client per side, so fewer games run in parallel.
+- **Scores per scenario**, not one combined score: win rate and damage traded for each scenario
+  separately, so it shows when learning one scenario makes another worse.
 - The bot loads frozen weights at startup and does not learn during games.
-- Start with one unit type in one small scenario where scripted micro is clearly weak. SC2 is slow
-  to simulate, so training cost is the main constraint.
+- **First milestone:** reproduce a known result ("1 stalker vs 2 roaches") to prove the tooling
+  works before training real Zerg models.
 
 ## Cross-cutting concerns
 
