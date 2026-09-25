@@ -1,0 +1,23 @@
+# Example batch: python -m tools.batch.run --config tools/batch/example.yaml
+
+bot: bot:CompetitiveBot      # module:Class of the bot to test
+race: Zerg
+
+maps:                        # names of .SC2Map files under ~/StarCraftII/Maps (subfolders are fine)
+  - IncorporealAIE_v4
+  - LeyLinesAIE_v3
+  - PersephoneAIE_v4
+  - PylonAIE_v4
+  - TorchesAIE_v4
+
+opponents:                   # built-in AI: race, difficulty, build
+  - {race: Terran, difficulty: Easy}
+  - {race: Protoss, difficulty: Easy}
+  - {race: Zerg, difficulty: Easy}
+  # difficulties: VeryEasy Easy Medium MediumHard Hard Harder VeryHard CheatVision CheatMoney CheatInsane
+  # builds:       RandomBuild Rush Timing Power Macro Air
+
+games_per_matchup: 1         # games for every map x opponent combination
+parallel: 4                  # games running at the same time
+game_time_limit: 1800        # game seconds; longer games count as a Tie
+wall_timeout: 1800           # real seconds before a stuck game is killed (counts as Timeout)
