@@ -20,6 +20,7 @@ RETREAT_MARGIN = 4.0
 class CooldownKiteTask(MicroTask):
     observation_space = spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32)
     action_space = spaces.Discrete(2)
+    win_reward_scale = 1.0
 
     def __init__(self):
         self._previous_distance: dict[tuple[int, int], float] = {}
@@ -60,7 +61,14 @@ class CooldownKiteTask(MicroTask):
     def terminal_reward(self, outcome: str, survivors: Units) -> float:
         if outcome != "win" or not survivors:
             return 0.0
-        return sum(_life_left(unit) for unit in survivors) / len(survivors)
+        return self.win_reward_scale * sum(_life_left(unit) for unit in survivors) / len(survivors)
+
+
+class SurvivalCooldownKiteTask(CooldownKiteTask):
+    """The same task, but surviving with more life matters: firing adds up to roughly +200 per
+    fight, which drowned out the original win reward of at most +1.5."""
+
+    win_reward_scale = 100.0
 
 
 def _closest(unit: Unit, enemies: Units) -> Unit:

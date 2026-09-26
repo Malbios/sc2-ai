@@ -195,6 +195,15 @@ class CooldownKiteTaskTest(unittest.TestCase):
         for outcome in ("loss", "tie", "timeout"):
             self.assertEqual(self.task.terminal_reward(outcome, [self.stalker]), 0.0)
 
+    def test_survival_variant_scales_only_the_win_reward(self):
+        from tools.rl.examples.cooldown_kite_task import SurvivalCooldownKiteTask
+
+        survival = SurvivalCooldownKiteTask()
+        hurt = StandInUnit(5, 0, 0, health=40, shield=0)
+        self.assertAlmostEqual(survival.terminal_reward("win", [hurt]), 50.0)
+        self.assertEqual(survival.terminal_reward("loss", [hurt]), 0.0)
+        self.assertEqual(survival.unit_reward(self.stalker, [], [self.roach]), 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
