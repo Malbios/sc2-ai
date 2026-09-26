@@ -130,5 +130,71 @@ class RewardTest(unittest.TestCase):
         self.assertEqual(KiteTask().terminal_reward("tie", survivors=[]), 0.0)
 
 
+class StandInUnit:
+    """Just enough of a python-sc2 Unit for CooldownKiteTask, recording the commands it gets."""
+
+    def __init__(self, tag, x, y, cooldown=0.0, health=80, health_max=80, shield=80, shield_max=80, ground_range=6):
+        from sc2.position import Point2
+
+        self.tag, self.position = tag, Point2((x, y))
+        self.weapon_cooldown, self.ground_range, self.radius = cooldown, ground_range, 0.5
+        self.health, self.health_max, self.shield, self.shield_max = health, health_max, shield, shield_max
+        self.commands = []
+
+    def attack(self, target):
+        self.commands.append(("attack", target))
+
+    def move(self, point):
+        self.commands.append(("move", point))
+
+    def stop(self):
+        self.commands.append(("stop",))
+
+
+class CooldownKiteTaskTest(unittest.TestCase):
+    def setUp(self):
+        from tools.rl.examples.cooldown_kite_task import CooldownKiteTask
+
+        self.task = CooldownKiteTask()
+        self.stalker = StandInUnit(1, 10, 10, cooldown=12)
+        self.roach = StandInUnit(2, 16, 10, ground_range=4)
+
+    def test_observation_and_distance_change(self):
+        first = self.task.observe(self.stalker, [], [self.roach])
+        self.assertEqual(first.tolist(), [12.0, 6.0, 0.0])
+        self.roach.position = self.roach.position.offset((2, 0))
+        self.assertEqual(self.task.observe(self.stalker, [], [self.roach]).tolist(), [12.0, 8.0, 2.0])
+        self.task.start_episode()
+        self.assertEqual(self.task.observe(self.stalker, [], [self.roach])[2], 0.0)
+
+    def test_no_enemies(self):
+        self.assertEqual(self.task.observe(self.stalker, [], []).tolist(), [12.0, 0.0, 0.0])
+        self.task.apply(self.stalker, 0, [], [])
+        self.assertEqual(self.stalker.commands, [("stop",)])
+
+    def test_actions(self):
+        far_roach = StandInUnit(3, 30, 10)
+        self.task.apply(self.stalker, 0, [], [far_roach, self.roach])
+        self.assertEqual(self.stalker.commands[-1], ("attack", self.roach))
+
+        self.task.apply(self.stalker, 1, [], [self.roach])
+        kind, point = self.stalker.commands[-1]
+        # Away from the roach, at its range (4) + both radii (1) + margin (4) = 9 from it.
+        self.assertEqual(kind, "move")
+        self.assertAlmostEqual(point.x, 16 - 9)
+        self.assertAlmostEqual(point.y, 10)
+
+    def test_rewards(self):
+        self.assertEqual(self.task.unit_reward(self.stalker, [], [self.roach]), 1.0)
+        self.assertEqual(self.task.unit_reward(StandInUnit(4, 0, 0, cooldown=0), [], []), 0.0)
+        self.assertEqual(self.task.reward(None, None), 0.0)
+
+        hurt = StandInUnit(5, 0, 0, health=40, shield=0)
+        self.assertAlmostEqual(self.task.terminal_reward("win", [hurt]), 0.5)
+        self.assertAlmostEqual(self.task.terminal_reward("win", [self.stalker]), 1.5)
+        for outcome in ("loss", "tie", "timeout"):
+            self.assertEqual(self.task.terminal_reward(outcome, [self.stalker]), 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()
