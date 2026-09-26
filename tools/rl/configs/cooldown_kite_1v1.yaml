@@ -1,9 +1,9 @@
-# Reproduction of github.com/sharknice/SharkyRLMatrixTraining: 1 stalker kites 1 roach, with his
-# task (2 actions, 3 inputs, reward for firing often), his decision rate and his PPO settings.
+# Based on github.com/sharknice/SharkyRLMatrixTraining: 1 stalker kites 1 roach, with his task
+# (2 actions, 3 inputs, reward for firing often), his map, decision rate and PPO settings.
 #
-#   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v1.yaml --timesteps 100000 --out models/cooldown-1v1
+#   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v1.yaml --timesteps 100000 --out models/cooldown-scripted-1v1
 
-map: Flat128
+map: MicroTraining           # his map, from his repo's Maps folder (see docs/linux-setup.md)
 decision_interval: 3         # his stepCount
 
 learner:
@@ -11,9 +11,11 @@ learner:
   task: tools.rl.examples.cooldown_kite_task:CooldownKiteTask
 
 enemy:
-  mode: builtin              # his roach belongs to the built-in AI at VeryHard
+  # Not the built-in AI, as in his setup: it pulls its spawned units back when a fight looks bad,
+  # so the stalker learned to chase fleeing roaches instead of kiting. Scripted roaches always
+  # attack the closest unit, so they chase.
+  mode: scripted
   race: Terran
-  difficulty: VeryHard
 
 scenarios:
   - name: stalker_vs_1_roach

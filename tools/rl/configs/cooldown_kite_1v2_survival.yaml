@@ -1,11 +1,11 @@
 # Like cooldown_kite_1v2_finetune.yaml, but with a win reward of 100 x life left, so the model
-# is paid for taking fewer hits against 2 roaches. With the plain task, fine-tuning left life
-# lost at ~66%, because firing (~+200 per fight) outweighed the win reward (at most +1.5).
+# is paid for taking fewer hits: firing adds ~+200 per fight, which drowns out the plain task's
+# win reward of at most +1.5.
 #
 #   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v2_survival.yaml \
-#       --resume models/stalker-kiter-v1/final.zip --timesteps 200000 --out models/stalker-kiter-v3
+#       --resume models/cooldown-scripted-1v1/final.zip --timesteps 200000 --out models/cooldown-scripted-survival
 
-map: Flat128
+map: MicroTraining
 decision_interval: 3
 
 learner:
@@ -13,9 +13,8 @@ learner:
   task: tools.rl.examples.cooldown_kite_task:SurvivalCooldownKiteTask
 
 enemy:
-  mode: builtin
+  mode: scripted             # the built-in AI's roaches flee (see cooldown_kite_1v1.yaml)
   race: Terran
-  difficulty: VeryHard
 
 scenarios:
   - name: stalker_vs_2_roaches

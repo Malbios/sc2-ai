@@ -9,7 +9,10 @@ python-sc2 starts and stops its own SC2 processes.
   runs. python-sc2 finds it at `~/StarCraftII`, or wherever `SC2PATH` points.
 - **Maps** under `~/StarCraftII/Maps` (subfolders are fine):
   - the ladder maps the bot plays on (e.g. `2025PS2_Maps/*AIE*.SC2Map`)
-  - `Melee/Flat64.SC2Map`, which RL training uses by default
+  - `MicroTraining.SC2Map`, the map RL micro training uses by default: an empty map (no bases,
+    no workers) from sharknice's SharkyRLMatrixTraining. It isn't in this repo, because that
+    repo has no license. Download it into the Maps folder:
+    `mkdir -p ~/StarCraftII/Maps/Micro && curl -sSfL -o ~/StarCraftII/Maps/Micro/MicroTraining.SC2Map https://raw.githubusercontent.com/sharknice/SharkyRLMatrixTraining/master/Maps/MicroTraining.SC2Map`
 
   The Linux build looks for maps in a **lowercase** `maps` folder and fails with `InvalidMapPath`
   otherwise. If yours is called `Maps`, add a symlink: `ln -s Maps ~/StarCraftII/maps`.

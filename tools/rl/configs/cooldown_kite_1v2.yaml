@@ -1,8 +1,8 @@
 # The sharknice kiting task (see cooldown_kite_1v1.yaml) against 2 roaches.
 #
-#   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v2.yaml --timesteps 400000 --out models/cooldown-1v2
+#   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v2.yaml --timesteps 400000 --out models/cooldown-scripted-1v2
 
-map: Flat128
+map: MicroTraining
 decision_interval: 3
 
 learner:
@@ -10,9 +10,8 @@ learner:
   task: tools.rl.examples.cooldown_kite_task:CooldownKiteTask
 
 enemy:
-  mode: builtin
+  mode: scripted             # the built-in AI's roaches flee (see cooldown_kite_1v1.yaml)
   race: Terran
-  difficulty: VeryHard
 
 scenarios:
   - name: stalker_vs_2_roaches

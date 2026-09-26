@@ -1,11 +1,11 @@
-# Refines a CooldownKiteTask model that already kites (trained on 1v1) against 2 roaches, with
-# gentle learning settings. Training 1v2 from scratch at learning rate 0.01 locked in on running
-# away within ~5,000 decisions.
+# Refines a CooldownKiteTask model trained on 1v1 against 2 roaches, with gentle learning
+# settings. Training 1v2 from scratch at learning rate 0.01 locked in on running away within
+# ~5,000 decisions.
 #
 #   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v2_finetune.yaml \
-#       --resume models/stalker-kiter-v1/final.zip --timesteps 200000 --out models/stalker-kiter-v2
+#       --resume models/cooldown-scripted-1v1/final.zip --timesteps 200000 --out models/cooldown-scripted-1v2
 
-map: Flat128
+map: MicroTraining
 decision_interval: 3
 
 learner:
@@ -13,9 +13,8 @@ learner:
   task: tools.rl.examples.cooldown_kite_task:CooldownKiteTask
 
 enemy:
-  mode: builtin
+  mode: scripted             # the built-in AI's roaches flee (see cooldown_kite_1v1.yaml)
   race: Terran
-  difficulty: VeryHard
 
 scenarios:
   - name: stalker_vs_2_roaches
