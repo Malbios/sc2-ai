@@ -422,6 +422,29 @@ class DriverCrashTest(unittest.TestCase):
             self.driver.loop.run_until_complete(_run_together(runs_forever(), fails()))
         self.assertEqual(cancelled, [True])
 
+    def test_close_cancels_each_client_only_once(self):
+        from tools.rl.driver import _run_together
+
+        cancelled_twice = []
+
+        async def client():
+            """Like a python-sc2 request: on cancel, it still waits for the answer before
+            re-raising, and a second cancel during that wait is fatal."""
+            try:
+                await self.asyncio.sleep(3600)
+            except self.asyncio.CancelledError:
+                try:
+                    await self.asyncio.sleep(0.01)
+                except self.asyncio.CancelledError:
+                    cancelled_twice.append(True)
+                raise
+
+        self.driver.loop.close = lambda: None  # close() closes the loop; setUp's cleanup does it too
+        self.driver.game_task = self.driver.loop.create_task(_run_together(client(), client()))
+        self.driver.loop.run_until_complete(self.asyncio.sleep(0))
+        self.driver.close()
+        self.assertEqual(cancelled_twice, [])
+
 
 if __name__ == "__main__":
     unittest.main()

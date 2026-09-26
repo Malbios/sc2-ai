@@ -324,6 +324,11 @@ class GameDriver:
     def close(self):
         # Cancelling the game makes python-sc2 shut its SC2 processes down; cancelling everything
         # else (e.g. aiohttp's connection cleanup) keeps asyncio from warning about pending tasks.
+        # The game goes first and alone: it cancels its clients itself, and python-sc2 exits the
+        # process when a client's request is cancelled a second time.
+        if self.game_task is not None and not self.game_task.done():
+            self.game_task.cancel()
+            self.loop.run_until_complete(asyncio.gather(self.game_task, return_exceptions=True))
         pending = asyncio.all_tasks(self.loop)
         for task in pending:
             task.cancel()
