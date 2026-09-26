@@ -174,7 +174,8 @@ Training lives outside the bot:
   mode, using python-sc2 and the same observation builder, action mapping and controller as the
   bot. The model decides every few game frames (python-sc2's `game_step`), not every frame.
 - Learning method: PPO from Stable-Baselines3, with environments in the Gymnasium format.
-- Reward is roughly damage dealt minus damage taken, plus a bonus for winning the fight.
+- Reward is set per task (damage traded, a bonus for firing, a bonus for winning); see the lessons
+  below for what each one taught the model.
 - **Randomized scenarios.** Each training round samples a scenario (unit types, counts, uneven
   fights, start positions) from a weighted list. The weights decide whether training goes step by
   step (1v1 first) or mixed from the start; that is a setting to try, not a fixed choice. Easy
@@ -190,36 +191,67 @@ Training lives outside the bot:
 - **First milestone:** reproduce a known result ("1 stalker vs 2 roaches") to prove the tooling
   works before training real Zerg models.
 
-What the first milestone taught us (stalker kiting, 2026-09; 1 stalker vs 1 roach reached, 1 vs 2
-next):
+What the first milestone taught us (stalker kiting, 2026-09). 1 stalker vs 1 roach: learned. 1 vs 2
+roaches: the models learned the hand-written kite rule, and beating it is next.
 
-- **Why sharknice's setup learns kiting and ours first didn't.** Two causes, each confirmed by
-  changing only that one thing (CooldownKiteTask on MicroTraining410, 1 stalker vs 1 roach):
-  - His enemy is the built-in AI. On his map both start locations are at the center, so its roach
-    defends the center: it chases, gives up at the edge of its leash and walks back. Every time
-    it turns around, the stalker gets free shots, so even clumsy kiting pays from the first
-    fights. Trained that way (his learning settings), the model kited: 5% life lost against the
-    built-in AI, and 30% against a roach that never gives up (the hand-written kite rule: 34%).
-  - Against a roach that never gives up, attacking non-stop also wins 1v1, and his learning rate
-    (0.01 with 16 epochs per batch) stops exploration within ~20k decisions, so the model locked
-    onto attack-only. At learning rate 0.0003 it kept exploring and learned kiting against that
-    roach directly: 37% life lost, backing off in 55% of the moments that call for it.
-- **At learning rate 0.01, keep checkpoints.** The built-in AI model kited well for most of the
-  run and flipped to "always retreat" in its last ~3,000 decisions, which is what got saved as
-  final. The checkpoint at 50k decisions is the good model.
+Why sharknice's setup (SharkyRLMatrixTraining) learns kiting, and ours first didn't. Two causes,
+each confirmed by changing only that one thing (his task on his map, 1 stalker vs 1 roach). His task
+has 3 inputs about the closest enemy (weapon cooldown, distance, distance change), 2 actions (attack
+closest, run from closest) and pays for every decision the weapon is cooling down, i.e. for firing
+often.
 
-- **Check that the enemy actually fights.** With the built-in AI controlling the spawned roaches,
-  they retreated whenever the fight looked bad for them. The stalker "won" 100% by chasing them,
-  and the replay showed zero kiting. Micro training uses the scripted enemy (it always attacks the
-  closest unit), and every evaluation includes a retreat-only baseline, which must lose.
-- **Distrust sudden wins.** Twice now a great result was an artifact: a 97% win rate came from a
-  bug (enemies out of sight counted as dead), and 100% came from enemies that fled. Watch a replay
-  before believing a number.
+- **His enemy leashes.** It is the built-in AI, whose units defend their start location: they
+  chase, give up at a leash distance and walk back home. On his map both start locations are at
+  the center, so the roach turns around near the map edge and the stalker gets free shots. Even
+  clumsy kiting pays from the first fights. Trained that way, the model kited with 5% life lost.
+  (On a map with corner start locations, the same leash makes enemy units walk to their corner,
+  which looks like fleeing.)
+- **His learning rate locks in early.** At 0.01 with 16 epochs per batch, exploration died within
+  5,000 to 20,000 decisions and the model kept whatever it did then. Against a roach that never
+  gives up, attacking non-stop also wins 1v1, so it locked onto attack-only. At 0.0003 it kept
+  exploring and learned kiting against that roach directly.
+
+Evaluating:
+
+- **Judge by 200 fights, not 30.** With 30 fights, a win rate is only accurate to about ±18
+  points: one model scored 37% and then 57% with identical settings. 200 fights (about ±7) take
+  only a few minutes.
+- **Compare with a hand-written rule.** Every task gets baseline policies (attack only, retreat
+  only, the kite rule: attack when the weapon is ready, else run). A model is only interesting if
+  it beats the best rule. `evaluate --compare-with` shows, per situation, how often a model picks
+  the rule's action, and whether its disagreements happen in won or lost fights.
+- **Check that the enemy actually fights.** Retreat-only must lose (or time out against a leashing
+  enemy). A model that "won" 100% against built-in AI roaches was chasing them home, with zero
+  kiting in the replay. Micro training uses the scripted enemy (it always attacks the closest
+  unit) unless leashing is the point.
+- **Distrust sudden wins and watch a replay.** Fake results so far: a 97% win rate from enemies
+  out of sight counted as dead, and 100% from enemies walking home.
+- **Measure the behavior, not only the outcome.** The kite share (how often a unit backs off while
+  its weapon cools down with an enemy close) told chasing from kiting when win rates could not.
+
+Training:
+
+- **At learning rate 0.01, keep checkpoints.** A model that kited well for most of its run flipped
+  to "always retreat" in its last ~3,000 decisions, which is what got saved as final.
+- **Refine with gentle settings.** A locked-in model barely changes when refined: it has stopped
+  exploring and can only polish what it does.
 - **A damage-taken penalty teaches running away.** With 5 actions, 52 inputs and a reward of
   damage dealt minus damage taken, the model never won against 2 roaches and learned to flee.
-- **Aggressive learning settings can lock in early.** At learning rate 0.01 with 16 epochs per
-  batch, the model stopped exploring within about 5,000 decisions and kept whatever it was doing
-  then. Refining an existing model uses gentle settings.
+- **The inputs and actions set the ceiling, not the training.** Against 2 roaches, both models
+  (from either learning rate, with a win reward of 1 or 100) chose the kite rule's action in 90
+  to 100% of decisions, and won 41% vs the rule's 37% (200 fights each, a tie). The model sees only
+  the closest roach and can only run straight away from it; it doesn't know where the second roach
+  or the map edge is. Given that, the rule is already the best it can do. Beating it needs inputs
+  and actions a rule doesn't use well.
+
+Tooling pitfalls:
+
+- `debug_show_map` is one game-wide toggle, so only one client may send it; two clients sending it
+  switch it off again.
+- sharknice's MicroTraining map turns fog off in its map script. Combined with `debug_show_map`,
+  enemy units became untargetable snapshots. MicroTraining410 is a 4.10 port without that script.
+- python-sc2 details: count enemies as dead only via `state.dead_units`, and save
+  replays only while the learner is waiting for its next step.
 
 ## Cross-cutting concerns
 
