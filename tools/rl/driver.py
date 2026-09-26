@@ -148,6 +148,7 @@ class GameDriver:
             episode.start = episode.last = FightSnapshot(life(own), life(enemies), life(own), life(enemies))
             episode.start_loop = bot.state.game_loop
             episode.phase = "fight"
+            self.task.start_episode()
 
         # An enemy only counts as dead when SC2 reports its death. One that is merely out of sight
         # keeps its last known life, so running away can never look like winning.
@@ -163,6 +164,7 @@ class GameDriver:
         own = bot.units.tags_in(episode.learner_tags)
         now = FightSnapshot(life(own), enemy_life, episode.start.own_start, episode.start.enemy_start)
         self.pending_reward += self.task.reward(episode.last, now)
+        self.pending_reward += sum(self.task.unit_reward(unit, own.tags_not_in({unit.tag}), enemies) for unit in own)
         episode.last = now
 
         outcome = None
@@ -175,7 +177,7 @@ class GameDriver:
         elif (bot.state.game_loop - episode.start_loop) / 22.4 > episode.scenario.time_limit:
             outcome = "timeout"
         if outcome:
-            self._finish(outcome, bot.state.game_loop)
+            self._finish(outcome, bot.state.game_loop, own)
             return
 
         for unit in sorted(own, key=lambda u: u.tag):
@@ -186,9 +188,9 @@ class GameDriver:
                 return
             self.task.apply(unit, int(action), allies, enemies)
 
-    def _finish(self, outcome: str, game_loop: int):
+    def _finish(self, outcome: str, game_loop: int, survivors: Units):
         episode = self.episode
-        self.pending_reward += self.task.terminal_reward(outcome)
+        self.pending_reward += self.task.terminal_reward(outcome, survivors)
         self.events.put_nowait(("end", {
             "scenario": episode.scenario.name,
             "outcome": outcome,

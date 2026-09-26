@@ -70,7 +70,7 @@ class KiteTask(MicroTask):
 
         return np.clip(np.asarray(features, dtype=np.float32), -1.0, 1.0)
 
-    def terminal_reward(self, outcome: str) -> float:
+    def terminal_reward(self, outcome: str, survivors: Units) -> float:
         # A time-out costs as much as a loss. With a free time-out, running away forever is the
         # easiest way to avoid damage, and the model learns that instead of kiting.
         return {"win": 1.0, "loss": -1.0, "timeout": -1.0}.get(outcome, 0.0)

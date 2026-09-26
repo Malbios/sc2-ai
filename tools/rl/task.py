@@ -26,7 +26,7 @@ def life(units: Units) -> float:
 
 class MicroTask:
     """Base class for tasks. A subclass sets the two spaces and implements observe and apply;
-    reward and terminal_reward have sensible defaults."""
+    the reward methods and start_episode have sensible defaults."""
 
     observation_space: spaces.Box
     action_space: spaces.Discrete
@@ -40,6 +40,9 @@ class MicroTask:
         """Turn the model's choice into python-sc2 commands for `unit`."""
         raise NotImplementedError
 
+    def start_episode(self) -> None:
+        """Called when a fight starts, for tasks that keep state across decisions."""
+
     def reward(self, before: FightSnapshot, after: FightSnapshot) -> float:
         """Shared team reward for one game step: the share of the enemy's starting life taken
         away, minus the share of our own starting life lost."""
@@ -47,7 +50,11 @@ class MicroTask:
         taken = (before.own_life - after.own_life) / max(after.own_start, 1.0)
         return dealt - taken
 
-    def terminal_reward(self, outcome: str) -> float:
+    def unit_reward(self, unit: Unit, allies: Units, enemies: Units) -> float:
+        """Extra reward for one learner unit's state after a game step, added to reward()."""
+        return 0.0
+
+    def terminal_reward(self, outcome: str, survivors: Units) -> float:
         """Extra reward when a fight ends: 'win', 'loss', 'tie' (both sides died) or 'timeout'
-        (the scenario's time limit ran out)."""
+        (the scenario's time limit ran out). `survivors` are the learner's units still alive."""
         return {"win": 1.0, "loss": -1.0}.get(outcome, 0.0)
