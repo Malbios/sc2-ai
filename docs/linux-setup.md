@@ -19,10 +19,16 @@ python-sc2 starts and stops its own SC2 processes.
 
 ## Micro training map
 
-`MicroTraining410.SC2Map` is sharknice's `MicroTraining.SC2Map` (from SharkyRLMatrixTraining)
-with its embedded game data and its fog-of-war script removed. As published, its script turns fog
-of war off, and together with the full vision training turns on, enemies become snapshots that
-can't be targeted. Neither map is in this repo, because the original has no license. To make it:
+`maps/MicroTraining410.SC2Map` in this repo is sharknice's `MicroTraining.SC2Map` (from
+SharkyRLMatrixTraining) with its embedded game data and its fog-of-war script removed. As
+published, its script turns fog of war off, and together with the full vision training turns on,
+enemies become snapshots that can't be targeted. Install it with:
+
+```
+mkdir -p ~/StarCraftII/Maps/Micro && cp ~/sc2-ai/maps/MicroTraining410.SC2Map ~/StarCraftII/Maps/Micro/
+```
+
+To rebuild it from the original instead:
 
 ```
 mkdir -p ~/StarCraftII/Maps/Micro && cd ~/StarCraftII/Maps/Micro
