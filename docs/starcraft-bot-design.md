@@ -190,21 +190,20 @@ Training lives outside the bot:
 - **First milestone:** reproduce a known result ("1 stalker vs 2 roaches") to prove the tooling
   works before training real Zerg models.
 
-What the first milestone taught us (stalker kiting, 2026-09):
+What the first milestone taught us so far (stalker kiting, 2026-09; not reached yet):
 
-- **Pay for the behavior, keep the task small.** A model with 5 actions, 52 inputs and a reward of
-  damage dealt minus damage taken never won against 2 roaches: the damage-taken penalty taught it
-  to run away. A port of sharknice's SharkyRLMatrixTraining task (2 actions: attack or retreat; 3
-  inputs: weapon cooldown, distance, distance change; +1 per step with the weapon cooling down,
-  life left as the win reward, no penalties) learned flawless 1v1 kiting in 100k decisions.
-- **Train on the easy fight, then transfer.** The model trained only on 1 stalker vs 1 roach won
-  100% of 1 stalker vs 2 roaches fights. Training on the hard fight from scratch never won once.
+- **Check that the enemy actually fights.** With the built-in AI controlling the spawned roaches,
+  they retreated whenever the fight looked bad for them. The stalker "won" 100% by chasing them,
+  and the replay showed zero kiting. Micro training uses the scripted enemy (it always attacks the
+  closest unit), and every evaluation includes a retreat-only baseline, which must lose.
+- **Distrust sudden wins.** Twice now a great result was an artifact: a 97% win rate came from a
+  bug (enemies out of sight counted as dead), and 100% came from enemies that fled. Watch a replay
+  before believing a number.
+- **A damage-taken penalty teaches running away.** With 5 actions, 52 inputs and a reward of
+  damage dealt minus damage taken, the model never won against 2 roaches and learned to flee.
 - **Aggressive learning settings can lock in early.** At learning rate 0.01 with 16 epochs per
-  batch, the model stopped exploring within about 5,000 decisions and kept whatever it did then:
-  kiting in 1v1 (lucky), running away in 1v2. Refining an existing model uses gentle settings.
-- **Measure against baselines and distrust sudden wins.** Every model is compared with random
-  actions and a hand-written rule. A 97% win rate once turned out to be a bug (enemies out of
-  sight counted as dead), so winning by running away looked like winning.
+  batch, the model stopped exploring within about 5,000 decisions and kept whatever it was doing
+  then. Refining an existing model uses gentle settings.
 
 ## Cross-cutting concerns
 
