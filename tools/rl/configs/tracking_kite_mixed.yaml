@@ -1,0 +1,58 @@
+# TrackingKiteTask against a mix of roaches that chase forever and roaches that give up at a leash
+# distance and walk home (like the built-in AI's units). The model sees how each roach moves, so it
+# can tell them apart. The built-in AI itself stays out of training as an unseen test enemy.
+#
+#   python -m tools.rl.train --config tools/rl/configs/tracking_kite_mixed.yaml --timesteps 2000000 --out models/tracking-kite-mixed
+
+map: MicroTraining410
+decision_interval: 3         # TrackingKiteTask's movement scale assumes 3
+
+learner:
+  race: Terran
+  task: tools.rl.examples.free_kite_task:TrackingKiteTask
+
+enemy:
+  mode: scripted             # each scenario's enemy_behavior says whether it chases or leashes
+  race: Terran
+
+scenarios:
+  - name: stalker_vs_2_chasing_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 2}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 3
+
+  - name: stalker_vs_2_leashed_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 2}
+    enemy_behavior: leash
+    leash: [8, 14]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 3
+
+  - name: stalker_vs_1_chasing_roach
+    learner: {Stalker: 1}
+    enemy: {Roach: 1}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+  - name: stalker_vs_1_leashed_roach
+    learner: {Stalker: 1}
+    enemy: {Roach: 1}
+    enemy_behavior: leash
+    leash: [8, 14]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  ent_coef: 0.01
+  net_arch: [128, 128]

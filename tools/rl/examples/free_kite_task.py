@@ -35,6 +35,8 @@ NEAR_WALL = 3.0
 COOLDOWN = 0
 FIRST_ENEMY = 3
 FIRST_RAY = FIRST_ENEMY + SEEN_ENEMIES * ENEMY_INPUTS
+FIRST_MOVEMENT = FIRST_RAY + len(DIRECTIONS)  # TrackingKiteTask's extra inputs start here
+MOVEMENT_SCALE = 0.42  # how far a roach moves in one decision at decision interval 3
 
 
 class FreeKiteTask(SurvivalCooldownKiteTask):
@@ -86,7 +88,7 @@ class FreeKiteTask(SurvivalCooldownKiteTask):
 
     def situation(self, observation: np.ndarray) -> str:
         weapon = "weapon ready" if observation[COOLDOWN] == 0 else "weapon cooling"
-        near_wall = min(observation[FIRST_RAY:]) * DISTANCE_SCALE < NEAR_WALL
+        near_wall = min(observation[FIRST_RAY:FIRST_MOVEMENT]) * DISTANCE_SCALE < NEAR_WALL
         return f"{weapon}, {'near a wall' if near_wall else 'open ground'}"
 
     def _free_distance(self, start: Point2, direction: Point2) -> float:
@@ -100,6 +102,33 @@ class FreeKiteTask(SurvivalCooldownKiteTask):
                 break
             travelled += RAY_STEP
         return travelled
+
+
+class TrackingKiteTask(FreeKiteTask):
+    """FreeKiteTask plus how each of the 2 seen enemies moved since the last decision, so the model
+    can tell a roach that keeps chasing from one that has turned back."""
+
+    observation_space = spaces.Box(-np.inf, np.inf, shape=(FIRST_MOVEMENT + 2 * SEEN_ENEMIES,), dtype=np.float32)
+
+    def __init__(self):
+        super().__init__()
+        self._last_positions: dict[tuple[int, int], Point2] = {}
+
+    def start_episode(self) -> None:
+        super().start_episode()
+        self._last_positions.clear()
+
+    def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
+        """FreeKiteTask's inputs, then each seen enemy's x and y movement since this unit's last
+        decision (zero on its first), in the same closest-first order, divided by MOVEMENT_SCALE."""
+        movement = np.zeros(2 * SEEN_ENEMIES, dtype=np.float32)
+        for index, enemy in enumerate(_by_distance(unit, enemies)[:SEEN_ENEMIES]):
+            last = self._last_positions.get((unit.tag, enemy.tag))
+            if last is not None:
+                movement[2 * index:2 * index + 2] = (enemy.position - last) / MOVEMENT_SCALE
+        for enemy in enemies:
+            self._last_positions[(unit.tag, enemy.tag)] = enemy.position
+        return np.concatenate([super().observe(unit, allies, enemies), movement])
 
 
 def _kite_rule(observation: np.ndarray) -> int:

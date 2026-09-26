@@ -341,6 +341,43 @@ class FreeKiteTaskTest(unittest.TestCase):
         self.assertEqual(self.task.situation(ready), "weapon ready, near a wall")
 
 
+class TrackingKiteTaskTest(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.free_kite_task import TrackingKiteTask
+
+        self.game_info = SimpleNamespace(pathing_grid=StandInGrid(40, 40))
+        self.task = TrackingKiteTask()
+        self.task.start_game(self.game_info)
+        self.stalker = StandInUnit(1, 20.5, 20.5, cooldown=15)
+        self.a = StandInUnit(2, 20.5, 16.5)  # 4 south
+        self.b = StandInUnit(3, 14.5, 20.5)  # 6 west
+
+    def movement(self):
+        return [round(value, 3) for value in self.task.observe(self.stalker, [], [self.a, self.b]).tolist()[-4:]]
+
+    def test_movement_follows_each_enemy(self):
+        self.assertEqual(self.movement(), [0.0, 0.0, 0.0, 0.0])  # nothing to compare with yet
+        self.a.position = Point2((20.5, 16.08))  # a roach step away from the stalker
+        self.assertEqual(self.movement(), [0.0, -1.0, 0.0, 0.0])
+        self.a.position = Point2((20.5, 12.5))  # now farther than b: b is listed first
+        self.b.position = Point2((14.92, 20.5))
+        self.assertEqual(self.movement()[:2], [1.0, 0.0])
+        self.task.start_episode()
+        self.assertEqual(self.movement(), [0.0, 0.0, 0.0, 0.0])
+
+    def test_keeps_free_kite_inputs_and_situation(self):
+        from tools.rl.examples.free_kite_task import FreeKiteTask
+
+        free = FreeKiteTask()
+        free.start_game(self.game_info)
+        observation = self.task.observe(self.stalker, [], [self.a, self.b])
+        self.assertEqual(observation[:21].tolist(), free.observe(self.stalker, [], [self.a, self.b]).tolist())
+        observation[-4:] = -5.0  # movement inputs must not look like a nearby wall
+        self.assertEqual(self.task.situation(observation), "weapon cooling, open ground")
+
+
 class LeashOrderTest(unittest.TestCase):
     """A roach spawned at (20, 20) with a leash of 8, against a stalker it may chase."""
 
