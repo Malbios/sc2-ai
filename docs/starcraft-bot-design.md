@@ -192,7 +192,8 @@ Training lives outside the bot:
   works before training real Zerg models.
 
 What the first milestone taught us (stalker kiting, 2026-09). 1 stalker vs 1 roach: learned. 1 vs 2
-roaches: the models learned the hand-written kite rule, and beating it is next.
+roaches: a model with more inputs and actions beat the kite rule (74% vs 39% wins) but not yet the
+smarter hand-written rule (82%).
 
 Why sharknice's setup (SharkyRLMatrixTraining) learns kiting, and ours first didn't. Two causes,
 each confirmed by changing only that one thing (his task on his map, 1 stalker vs 1 roach). His task
