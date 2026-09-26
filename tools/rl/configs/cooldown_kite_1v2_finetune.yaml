@@ -1,0 +1,42 @@
+# Refines a CooldownKiteTask model that already kites (trained on 1v1) against 2 roaches, with
+# gentle learning settings. Training 1v2 from scratch at learning rate 0.01 locked in on running
+# away within ~5,000 decisions.
+#
+#   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v2_finetune.yaml \
+#       --resume models/stalker-kiter-v1/final.zip --timesteps 200000 --out models/stalker-kiter-v2
+
+map: Flat128
+decision_interval: 3
+
+learner:
+  race: Terran
+  task: tools.rl.examples.cooldown_kite_task:CooldownKiteTask
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: stalker_vs_2_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 2}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 3
+
+  - name: stalker_vs_1_roach   # kept in the mix so the model doesn't forget the easy fight
+    learner: {Stalker: 1}
+    enemy: {Roach: 1}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  ent_coef: 0.01
+  net_arch: [128, 128]         # must match the model being refined
