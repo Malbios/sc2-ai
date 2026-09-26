@@ -5,6 +5,8 @@ every step its weapon is cooling down (i.e. for firing as often as possible) plu
 left when it wins. Nothing is ever subtracted.
 """
 
+from collections.abc import Callable
+
 import numpy as np
 from gymnasium import spaces
 from sc2.position import Point2
@@ -27,6 +29,13 @@ class CooldownKiteTask(MicroTask):
 
     def start_episode(self) -> None:
         self._previous_distance.clear()
+
+    def baseline_policies(self) -> dict[str, Callable[[np.ndarray], int]]:
+        return {
+            "attack": lambda observation: ATTACK_CLOSEST,
+            "retreat": lambda observation: RETREAT_FROM_CLOSEST,
+            "kite": lambda observation: ATTACK_CLOSEST if observation[0] == 0 else RETREAT_FROM_CLOSEST,
+        }
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """Weapon cooldown, distance to the closest enemy, and how much that distance grew since

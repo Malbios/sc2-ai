@@ -4,6 +4,7 @@ import unittest
 from collections import Counter
 
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.position import Point2
 
 from tools.rl.config import parse_config, self_play_side
 from tools.rl.scenarios import ScenarioSampler, parse_scenarios, spawn_centers
@@ -203,6 +204,59 @@ class CooldownKiteTaskTest(unittest.TestCase):
         self.assertAlmostEqual(survival.terminal_reward("win", [hurt]), 50.0)
         self.assertEqual(survival.terminal_reward("loss", [hurt]), 0.0)
         self.assertEqual(survival.unit_reward(self.stalker, [], [self.roach]), 1.0)
+
+
+class BaselinePolicyTest(unittest.TestCase):
+    def test_cooldown_kite_task_baselines(self):
+        from tools.rl.examples.cooldown_kite_task import CooldownKiteTask
+
+        policies = CooldownKiteTask().baseline_policies()
+        ready, cooling = [0.0, 6.0, 0.0], [12.0, 6.0, 0.0]
+        self.assertEqual([policies["attack"](ready), policies["attack"](cooling)], [0, 0])
+        self.assertEqual([policies["retreat"](ready), policies["retreat"](cooling)], [1, 1])
+        self.assertEqual([policies["kite"](ready), policies["kite"](cooling)], [0, 1])
+        self.assertEqual(MicroTask().baseline_policies(), {})
+
+
+class KiteMeterTest(unittest.TestCase):
+    """Roach reach against the stand-in stalker: range 4 + radii 1 = 5, so gaps up to 7 are close."""
+
+    def setUp(self):
+        from tools.rl.kiting import KiteMeter
+
+        self.meter = KiteMeter()
+        self.stalker = StandInUnit(1, 10, 10, cooldown=12)
+        self.roach = StandInUnit(2, 16, 10, ground_range=4)
+
+    def step(self, stalker_x: float):
+        self.stalker.position = Point2((stalker_x, 10))
+        self.meter.update(self.stalker, [self.roach])
+
+    def test_backing_off_during_cooldown_counts_as_kiting(self):
+        self.step(10)  # first sighting: nothing to compare with yet
+        self.step(9.5)
+        self.step(9)
+        self.assertEqual((self.meter.close_cooldown_steps, self.meter.backing_off_steps), (2, 2))
+        self.assertEqual(self.meter.share, 1.0)
+
+    def test_chasing_or_standing_does_not(self):
+        self.step(10)
+        self.step(10.5)
+        self.step(10.5)
+        self.assertEqual(self.meter.share, 0.0)
+        self.assertEqual(self.meter.close_cooldown_steps, 2)
+
+    def test_ready_weapon_or_distant_enemy_is_not_counted(self):
+        self.stalker.weapon_cooldown = 0
+        self.step(10)
+        self.step(9)
+        self.stalker.weapon_cooldown = 12
+        self.roach.position = Point2((30, 10))
+        self.step(8)
+        self.step(7)
+        self.assertEqual(self.meter.close_cooldown_steps, 0)
+        self.assertEqual(self.meter.share, 0.0)
+        self.meter.update(self.stalker, [])
 
 
 if __name__ == "__main__":

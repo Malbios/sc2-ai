@@ -2,6 +2,7 @@
 doing well. Training and live play use the same task, so the model never sees different inputs
 in a real game than it was trained on."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -42,6 +43,10 @@ class MicroTask:
 
     def start_episode(self) -> None:
         """Called when a fight starts, for tasks that keep state across decisions."""
+
+    def baseline_policies(self) -> dict[str, Callable[[np.ndarray], int]]:
+        """Hand-written policies (observation -> action) a trained model should be compared with."""
+        return {}
 
     def reward(self, before: FightSnapshot, after: FightSnapshot) -> float:
         """Shared team reward for one game step: the share of the enemy's starting life taken

@@ -35,6 +35,7 @@ from sc2.units import Units
 from tools.rl.config import TrainingConfig
 from tools.rl.enemies import make_enemy_player
 from tools.rl.scenarios import Scenario, spawn_centers
+from tools.rl.kiting import KiteMeter
 from tools.rl.task import FightSnapshot, MicroTask, life
 
 # Steps to wait for spawned units to show up before clearing and spawning again.
@@ -55,6 +56,7 @@ class Episode:
     dead_enemies: set[int] = field(default_factory=set)
     enemy_life: dict[int, float] = field(default_factory=dict)  # last known, per tag
     unseen_steps: int = 0  # steps where a living enemy of the fight was out of sight
+    kite_meter: KiteMeter = field(default_factory=KiteMeter)
     start: FightSnapshot | None = None
     last: FightSnapshot | None = None
     start_loop: int = 0
@@ -165,6 +167,8 @@ class GameDriver:
         now = FightSnapshot(life(own), enemy_life, episode.start.own_start, episode.start.enemy_start)
         self.pending_reward += self.task.reward(episode.last, now)
         self.pending_reward += sum(self.task.unit_reward(unit, own.tags_not_in({unit.tag}), enemies) for unit in own)
+        for unit in own:
+            episode.kite_meter.update(unit, enemies)
         episode.last = now
 
         outcome = None
@@ -198,6 +202,7 @@ class GameDriver:
             "damage_taken": 1 - episode.last.own_life / max(episode.start.own_start, 1.0),
             "game_seconds": (game_loop - episode.start_loop) / 22.4,
             "unseen_steps": episode.unseen_steps,  # should stay 0 with full vision
+            "kite_share": episode.kite_meter.share,
         }))
         self.episode = None
 
