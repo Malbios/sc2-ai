@@ -67,6 +67,18 @@ python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --
 - With `self_play` in the config, both sides train in turns, and each side gets its own folder
   (`a/`, `b/`) with a `final.zip`.
 
+## Uploading to AI Arena
+
+```
+python -m tools.create_ladder_zip        # -> publish/bot.zip
+```
+
+Run it with the venv active, on any machine. The zip holds `run.py` (the ladder entry point from
+`tools/ladder_run.py`, not the repo's LAN `run.py`), `bot/`, `config.py` for the bot's race and
+name, and a copy of the installed python-sc2, so the ladder runs the same python-sc2 version as
+you do. It packs your working copy, uncommitted changes included, and prints the commit it was
+built from.
+
 ## Long runs
 
 Start a tmux session, run the command inside it, then detach with `Ctrl+b d`:

@@ -23,6 +23,7 @@ ENV/
 .idea/
 .vscode/
 
-# Tool output (batch runs, trained models)
+# Tool output (batch runs, trained models, ladder zip)
 runs/
 models/
+publish/
