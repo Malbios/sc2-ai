@@ -9,15 +9,31 @@ python-sc2 starts and stops its own SC2 processes.
   runs. python-sc2 finds it at `~/StarCraftII`, or wherever `SC2PATH` points.
 - **Maps** under `~/StarCraftII/Maps` (subfolders are fine):
   - the ladder maps the bot plays on (e.g. `2025PS2_Maps/*AIE*.SC2Map`)
-  - `MicroTraining.SC2Map`, the map RL micro training uses by default: an empty map (no bases,
-    no workers) from sharknice's SharkyRLMatrixTraining. It isn't in this repo, because that
-    repo has no license. Download it into the Maps folder:
-    `mkdir -p ~/StarCraftII/Maps/Micro && curl -sSfL -o ~/StarCraftII/Maps/Micro/MicroTraining.SC2Map https://raw.githubusercontent.com/sharknice/SharkyRLMatrixTraining/master/Maps/MicroTraining.SC2Map`
+  - `MicroTraining410.SC2Map`, the map RL micro training uses by default: an empty map (no
+    bases, no workers). See "Micro training map" below.
 
   The Linux build looks for maps in a **lowercase** `maps` folder and fails with `InvalidMapPath`
   otherwise. If yours is called `Maps`, add a symlink: `ln -s Maps ~/StarCraftII/maps`.
 - Python 3.10 or newer, with `venv`.
 - `tmux`, so long runs survive a closed SSH session.
+
+## Micro training map
+
+`MicroTraining410.SC2Map` is sharknice's `MicroTraining.SC2Map` (from SharkyRLMatrixTraining)
+with its embedded game data and its fog-of-war script removed. As published, its script turns fog
+of war off, and together with the full vision training turns on, enemies become snapshots that
+can't be targeted. Neither map is in this repo, because the original has no license. To make it:
+
+```
+mkdir -p ~/StarCraftII/Maps/Micro && cd ~/StarCraftII/Maps/Micro
+curl -sSfL -o MicroTraining.SC2Map https://raw.githubusercontent.com/sharknice/SharkyRLMatrixTraining/master/Maps/MicroTraining.SC2Map
+
+git clone --depth 1 https://github.com/ladislav-zezula/StormLib.git /tmp/stormlib
+cmake -S /tmp/stormlib -B /tmp/stormlib/build -DBUILD_SHARED_LIBS=ON -DSTORM_USE_BUNDLED_LIBRARIES=ON -DSTORM_SKIP_INSTALL=ON
+cmake --build /tmp/stormlib/build -j 8
+
+~/sc2-ai/venv/bin/python ~/sc2-ai/tools/port_micro_training_map.py /tmp/stormlib/build/libstorm.so MicroTraining.SC2Map MicroTraining410.SC2Map
+```
 
 ## Install
 

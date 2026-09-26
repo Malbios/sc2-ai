@@ -111,7 +111,7 @@ def parse_config(data: dict) -> TrainingConfig:
         raise ValueError("enemy mode 'frozen' needs 'enemy.task' and 'enemy.model'")
 
     config = TrainingConfig(
-        map=data.get("map", "MicroTraining"),
+        map=data.get("map", "MicroTraining410"),
         decision_interval=int(data.get("decision_interval", 4)),
         learner=LearnerConfig(race=_check_enum(learner.get("race", "Terran"), Race, "race"), task=learner["task"]),
         enemy=enemy_config,

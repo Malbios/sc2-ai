@@ -2,7 +2,7 @@
 #
 #   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v2.yaml --timesteps 400000 --out models/cooldown-scripted-1v2
 
-map: MicroTraining
+map: MicroTraining410
 decision_interval: 3
 
 learner:

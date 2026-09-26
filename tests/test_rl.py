@@ -66,7 +66,7 @@ class ScenarioTest(unittest.TestCase):
 class ConfigTest(unittest.TestCase):
     def test_defaults(self):
         config = parse_config(CONFIG)
-        self.assertEqual(config.map, "MicroTraining")
+        self.assertEqual(config.map, "MicroTraining410")
         self.assertEqual(config.decision_interval, 4)
         self.assertIsNone(config.self_play)
 

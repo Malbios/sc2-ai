@@ -5,7 +5,7 @@
 #   python -m tools.rl.train --config tools/rl/configs/cooldown_kite_1v2_survival.yaml \
 #       --resume models/cooldown-scripted-1v1/final.zip --timesteps 200000 --out models/cooldown-scripted-survival
 
-map: MicroTraining
+map: MicroTraining410
 decision_interval: 3
 
 learner:
