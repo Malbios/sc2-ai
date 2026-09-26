@@ -18,7 +18,9 @@ out on the step that let the game advance.
 import asyncio
 import math
 import random
+import sys
 import time
+import traceback
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -79,6 +81,14 @@ class LearnerBot(BotAI):
 
     async def on_step(self, iteration: int):
         await self.driver.learner_step(self)
+
+
+async def _run_together(*coroutines):
+    """Runs both clients of a game; if one fails, the other is cancelled (which shuts its SC2
+    process down) instead of running on without a partner."""
+    async with asyncio.TaskGroup() as group:
+        tasks = [group.create_task(coroutine) for coroutine in coroutines]
+    return [task.result() for task in tasks]
 
 
 def _group_near(units: Units, center: Point2, expected: dict) -> Units | None:
@@ -224,14 +234,10 @@ class GameDriver:
         if isinstance(enemy, Bot):
             portconfig = Portconfig()
             players = [learner, enemy]
-
-            async def both_clients():
-                return await asyncio.gather(
-                    _host_game(game_map, players, portconfig=portconfig),
-                    _join_game(players, realtime=False, portconfig=portconfig),
-                )
-
-            self.game_task = self.loop.create_task(both_clients())
+            self.game_task = self.loop.create_task(_run_together(
+                _host_game(game_map, players, portconfig=portconfig),
+                _join_game(players, realtime=False, portconfig=portconfig),
+            ))
         else:
             self.game_task = self.loop.create_task(_host_game(game_map, [learner, enemy]))
 
@@ -246,7 +252,9 @@ class GameDriver:
 
         kind, payload = self.loop.run_until_complete(wait())
         if kind == "game_over" and not self.game_task.cancelled() and self.game_task.exception():
-            raise RuntimeError("the SC2 game crashed") from self.game_task.exception()
+            payload = self.game_task.exception()
+            print("SC2 game crashed, restarting on the next reset:", file=sys.stderr)
+            traceback.print_exception(payload, file=sys.stderr)
         if kind in ("ready", "decide"):
             self._waiting_for = kind
         return kind, payload
@@ -273,7 +281,7 @@ class GameDriver:
             if kind == "game_over":
                 restarts += 1
                 if restarts > MAX_GAME_RESTARTS:
-                    raise RuntimeError(f"the SC2 game ended {restarts} times in a row during reset")
+                    raise RuntimeError(f"the SC2 game ended {restarts} times in a row during reset") from payload
                 self._start_game()
                 sent = False
             elif kind == "ready":

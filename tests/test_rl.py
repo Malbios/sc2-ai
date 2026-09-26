@@ -358,5 +358,70 @@ class LearnerBotTest(unittest.TestCase):
         self.assertEqual(task.game_info, "the map")
 
 
+class DriverCrashTest(unittest.TestCase):
+    def setUp(self):
+        import asyncio
+        import contextlib
+        import io
+        from types import SimpleNamespace
+
+        from sc2.protocol import ProtocolError
+
+        from tools.rl.driver import GameDriver
+        from tools.rl.examples.cooldown_kite_task import CooldownKiteTask
+
+        self.asyncio, self.ProtocolError = asyncio, ProtocolError
+        self.driver = GameDriver(SimpleNamespace(decision_interval=3), CooldownKiteTask(), random.Random())
+        self.addCleanup(self.driver.loop.close)
+        self.stderr = io.StringIO()
+        redirect = contextlib.redirect_stderr(self.stderr)
+        redirect.__enter__()
+        self.addCleanup(redirect.__exit__, None, None, None)
+
+    def start_crashing_game(self):
+        async def crash():
+            raise self.ProtocolError("Unable to complete the step request, not in a game.")
+
+        self.games_started = getattr(self, "games_started", 0) + 1
+        self.driver.events = self.asyncio.Queue()
+        self.driver._waiter, self.driver._waiting_for = None, None
+        self.driver.game_task = self.driver.loop.create_task(crash())
+
+    def test_crash_during_a_fight_ends_it_as_game_over(self):
+        self.start_crashing_game()
+        self.driver._waiter, self.driver._waiting_for = self.driver.loop.create_future(), "decide"
+        _, _, terminated, truncated, info = self.driver.step(0)
+        self.assertEqual((terminated, truncated, info), (False, True, {"outcome": "game_over"}))
+        self.assertIn("SC2 game crashed", self.stderr.getvalue())
+
+    def test_reset_restarts_crashed_games_then_gives_up(self):
+        from tools.rl.driver import MAX_GAME_RESTARTS
+
+        self.driver._start_game = self.start_crashing_game
+        with self.assertRaises(RuntimeError) as raised:
+            self.driver.reset(scenario=None)
+        self.assertEqual(self.games_started, MAX_GAME_RESTARTS + 1)
+        self.assertIsInstance(raised.exception.__cause__, self.ProtocolError)
+
+    def test_a_failing_client_cancels_the_other(self):
+        from tools.rl.driver import _run_together
+
+        cancelled = []
+
+        async def fails():
+            raise self.ProtocolError("not in a game")
+
+        async def runs_forever():
+            try:
+                await self.asyncio.sleep(3600)
+            except self.asyncio.CancelledError:
+                cancelled.append(True)
+                raise
+
+        with self.assertRaises(ExceptionGroup):
+            self.driver.loop.run_until_complete(_run_together(runs_forever(), fails()))
+        self.assertEqual(cancelled, [True])
+
+
 if __name__ == "__main__":
     unittest.main()
