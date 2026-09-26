@@ -254,8 +254,8 @@ Training:
 - **Evaluate checkpoints, not only the final model.** Training win rates swing by 20 points
   between batches, and the best model is often an earlier checkpoint.
 - **Training takes much longer when the task is richer.** From scratch with 10 actions, the model
-  won no 2-roach fight for the first ~150k decisions (it learned the 1-roach fight first), then
-  climbed slowly.
+  won its 1-roach fights early, but no 2-roach fight until ~150k decisions, although both were
+  mixed in from the start (75% 2 roaches, 25% 1 roach). Then it climbed slowly.
 
 Tooling pitfalls:
 
