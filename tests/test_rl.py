@@ -81,6 +81,16 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(data=data), self.assertRaises(ValueError):
                 parse_config(data)
 
+    def test_ppo_settings(self):
+        self.assertEqual(parse_config(CONFIG).ppo.learning_rate, 3e-4)
+        ppo = parse_config({**CONFIG, "ppo": {"learning_rate": 0.01, "net_arch": [128, 128]}}).ppo
+        kwargs = ppo.as_kwargs()
+        self.assertEqual(kwargs["learning_rate"], 0.01)
+        self.assertEqual(kwargs["policy_kwargs"], {"net_arch": [128, 128]})
+        self.assertNotIn("net_arch", kwargs)
+        with self.assertRaises(ValueError):
+            parse_config({**CONFIG, "ppo": {"lr": 0.01}})
+
     def test_self_play_sides(self):
         config = parse_config({**CONFIG, "self_play": {"rounds": 2, "steps_per_round": 10}})
         a = self_play_side(config, "a", "b.zip")
@@ -92,6 +102,7 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual((b.learner.race, b.learner.task), ("Zerg", "some.module:TaskB"))
         self.assertEqual((b.enemy.race, b.enemy.task, b.enemy.model), ("Protoss", "some.module:TaskA", "a.zip"))
         self.assertEqual(b.scenarios[0].learner, {UnitTypeId.ROACH: 2})
+        self.assertEqual(b.ppo, config.ppo)
 
 
 class RewardTest(unittest.TestCase):

@@ -1,8 +1,8 @@
-"""Training configuration (YAML): map, decision interval, learner, enemy control, scenarios and
-optional self-play."""
+"""Training configuration (YAML): map, decision interval, learner, enemy control, scenarios,
+PPO settings and optional self-play."""
 
 import importlib
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 import yaml
@@ -35,6 +35,21 @@ class SelfPlayConfig:
 
 
 @dataclass(frozen=True)
+class PPOConfig:
+    learning_rate: float = 3e-4
+    n_steps: int = 1024  # decisions collected per environment before each update
+    batch_size: int = 256
+    n_epochs: int = 10
+    gamma: float = 0.99
+    ent_coef: float = 0.01
+    net_arch: tuple[int, ...] = (64, 64)  # hidden layer sizes
+
+    def as_kwargs(self) -> dict:
+        settings = {field.name: getattr(self, field.name) for field in fields(self) if field.name != "net_arch"}
+        return {**settings, "policy_kwargs": {"net_arch": list(self.net_arch)}}
+
+
+@dataclass(frozen=True)
 class TrainingConfig:
     map: str
     decision_interval: int  # game frames between decisions (python-sc2's game_step)
@@ -42,6 +57,17 @@ class TrainingConfig:
     enemy: EnemyConfig
     scenarios: tuple[Scenario, ...]
     self_play: SelfPlayConfig | None = None
+    ppo: PPOConfig = PPOConfig()
+
+
+def _parse_ppo(settings: dict) -> PPOConfig:
+    known = {field.name for field in fields(PPOConfig)}
+    unknown = set(settings) - known
+    if unknown:
+        raise ValueError(f"unknown 'ppo' settings: {', '.join(sorted(unknown))}. Known: {', '.join(sorted(known))}")
+    if "net_arch" in settings:
+        settings = {**settings, "net_arch": tuple(int(size) for size in settings["net_arch"])}
+    return PPOConfig(**settings)
 
 
 def _check_enum(value: str, enum, what: str) -> str:
@@ -91,6 +117,7 @@ def parse_config(data: dict) -> TrainingConfig:
         enemy=enemy_config,
         scenarios=tuple(parse_scenarios(data.get("scenarios"))),
         self_play=self_play,
+        ppo=_parse_ppo(data.get("ppo") or {}),
     )
     if config.decision_interval < 1:
         raise ValueError("'decision_interval' must be at least 1")
@@ -111,7 +138,7 @@ def self_play_side(config: TrainingConfig, side: str, other_model: str) -> Train
         scenarios = tuple(scenario.swapped() for scenario in config.scenarios)
     else:
         raise ValueError(f"side must be 'a' or 'b', got '{side}'")
-    return TrainingConfig(config.map, config.decision_interval, learner, enemy, scenarios, config.self_play)
+    return replace(config, learner=learner, enemy=enemy, scenarios=scenarios)
 
 
 def load_config(path: str | Path) -> TrainingConfig:

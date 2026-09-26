@@ -25,7 +25,8 @@ from tools.rl.config import TrainingConfig, load_config, self_play_side
 from tools.rl.env import SC2MicroEnv
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PPO_SETTINGS = {"n_steps": 1024, "batch_size": 256, "ent_coef": 0.01, "device": "cpu", "verbose": 1}
+def new_model(config: TrainingConfig, env) -> PPO:
+    return PPO("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs())
 
 
 class FightStatsCallback(BaseCallback):
@@ -60,7 +61,7 @@ def make_vec_env(config: TrainingConfig, n_envs: int):
 def train(config: TrainingConfig, n_envs: int, timesteps: int, out: Path, resume: str | None) -> Path:
     venv = make_vec_env(config, n_envs)
     try:
-        model = PPO.load(resume, env=venv, device="cpu") if resume else PPO("MlpPolicy", venv, **PPO_SETTINGS)
+        model = PPO.load(resume, env=venv, device="cpu") if resume else new_model(config, venv)
         model.set_logger(configure(str(out / "logs"), ["stdout", "csv"]))
         checkpoints = CheckpointCallback(save_freq=max(50_000 // n_envs, 1), save_path=str(out / "checkpoints"))
         model.learn(timesteps, callback=CallbackList([checkpoints, FightStatsCallback()]),
@@ -76,7 +77,7 @@ def _initial_model(config: TrainingConfig, path: Path) -> Path:
     Building the env doesn't start SC2."""
     env = DummyVecEnv([partial(SC2MicroEnv, config)])
     try:
-        PPO("MlpPolicy", env, **PPO_SETTINGS).save(path)
+        new_model(config, env).save(path)
     finally:
         env.close()
     return path
