@@ -62,6 +62,15 @@ class ScenarioTest(unittest.TestCase):
         self.assertEqual(one.swapped().learner, one.enemy)
         self.assertEqual(one.swapped().swapped(), one)
 
+    def test_enemy_behavior(self):
+        chase, leash = parse_scenarios([SCENARIOS[0], {**SCENARIOS[1], "enemy_behavior": "leash", "leash": [8, 14]}])
+        self.assertEqual((chase.enemy_behavior, chase.leash), ("chase", None))
+        self.assertEqual((leash.enemy_behavior, leash.leash), ("leash", (8.0, 14.0)))
+        self.assertEqual(leash.swapped().leash, (8.0, 14.0))
+        for bad in ({"enemy_behavior": "flee"}, {"enemy_behavior": "leash"}, {"enemy_behavior": "leash", "leash": [9, 3]}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                parse_scenarios([{**SCENARIOS[0], **bad}])
+
 
 class ConfigTest(unittest.TestCase):
     def test_defaults(self):
@@ -330,6 +339,33 @@ class FreeKiteTaskTest(unittest.TestCase):
         ready = self.task.observe(self.stalker, [], [self.far, self.near])
         self.assertEqual([policies["attack"](ready), policies["kite"](ready), policies["smart"](ready)], [0, 0, 1])
         self.assertEqual(self.task.situation(ready), "weapon ready, near a wall")
+
+
+class LeashOrderTest(unittest.TestCase):
+    """A roach spawned at (20, 20) with a leash of 8, against a stalker it may chase."""
+
+    def setUp(self):
+        from tools.rl.enemies import EnemyBriefing
+
+        self.briefing = EnemyBriefing("leash", Point2((20, 20)), 8.0)
+        self.stalker = StandInUnit(1, 30, 20)
+        self.roach = StandInUnit(2, 25, 20)
+
+    def order(self, roach_x, returning):
+        from tools.rl.enemies import leash_order
+
+        self.roach.position = Point2((roach_x, 20))
+        return leash_order(self.roach, [self.stalker], self.briefing, returning)
+
+    def test_attacks_inside_the_leash(self):
+        target, returning = self.order(25, False)
+        self.assertEqual((target.tag, returning), (1, False))
+
+    def test_walks_home_past_the_leash_until_it_gets_there(self):
+        self.assertEqual(self.order(28.5, False), (Point2((20, 20)), True))
+        self.assertEqual(self.order(25, True), (Point2((20, 20)), True))  # back inside, still walking home
+        target, returning = self.order(21, True)  # home: fights again
+        self.assertEqual((target.tag, returning), (1, False))
 
 
 class LearnerBotTest(unittest.TestCase):

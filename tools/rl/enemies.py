@@ -1,11 +1,16 @@
 """Who controls the enemy side of a training fight: the built-in AI, a simple script, or a frozen
 copy of a trained model."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
+
 import numpy as np
 from sc2.bot_ai import BotAI
 from sc2.data import Difficulty, Race
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.player import Bot, Computer
+from sc2.position import Point2
+from sc2.unit import Unit
 from sc2.units import Units
 
 from tools.rl.config import EnemyConfig, load_class
@@ -21,12 +26,41 @@ def fighters(units: Units) -> Units:
     return units.filter(lambda unit: unit.type_id not in NON_FIGHTERS)
 
 
-class ScriptedEnemyBot(BotAI):
-    """Every fighter attacks the closest enemy fighter. Predictable on purpose."""
+@dataclass(frozen=True)
+class EnemyBriefing:
+    """How the scripted enemy fights the current fight."""
 
-    def __init__(self, decision_interval: int):
+    behavior: str  # "chase" or "leash", see Scenario.enemy_behavior
+    home: Point2  # where the enemy group spawned
+    leash: float
+
+
+# A leashed unit walking home fights again once it is this close to home.
+HOME_RADIUS = 1.5
+
+
+def leash_order(unit: Unit, targets: Units, briefing: EnemyBriefing, returning: bool) -> tuple[Unit | Point2, bool]:
+    """A leashed unit's order: the target to attack or the point to walk to, and whether it is now
+    walking home. Past the leash it walks home and ignores everything until it gets there."""
+    distance_home = unit.position.distance_to(briefing.home)
+    if distance_home > briefing.leash:
+        returning = True
+    elif distance_home < HOME_RADIUS:
+        returning = False
+    if returning:
+        return briefing.home, True
+    return min(targets, key=lambda target: unit.position.distance_to(target.position)), False
+
+
+class ScriptedEnemyBot(BotAI):
+    """Every fighter attacks the closest enemy fighter. Predictable on purpose. With a leash
+    briefing, it gives up and walks home past the leash distance instead of chasing forever."""
+
+    def __init__(self, decision_interval: int, briefing: Callable[[], EnemyBriefing | None] = lambda: None):
         super().__init__()
         self.decision_interval = decision_interval
+        self.briefing = briefing
+        self.returning: set[int] = set()
 
     async def on_start(self):
         # No debug_show_map here: the learner already turned on full vision for the whole game,
@@ -37,8 +71,18 @@ class ScriptedEnemyBot(BotAI):
         targets = fighters(self.enemy_units)
         if not targets:
             return
+        briefing = self.briefing()
         for unit in fighters(self.units):
-            unit.attack(targets.closest_to(unit))
+            if briefing is None or briefing.behavior != "leash":
+                unit.attack(targets.closest_to(unit))
+                continue
+            order, returning = leash_order(unit, targets, briefing, unit.tag in self.returning)
+            if returning:
+                self.returning.add(unit.tag)
+                unit.move(order)
+            else:
+                self.returning.discard(unit.tag)
+                unit.attack(order)
 
 
 class FrozenEnemyBot(BotAI):
@@ -66,11 +110,17 @@ class FrozenEnemyBot(BotAI):
             self.task.apply(unit, int(action), own.tags_not_in({unit.tag}), enemies)
 
 
-def make_enemy_player(config: EnemyConfig, decision_interval: int, model_path: str | None = None):
-    """The enemy player for a game. `model_path` overrides config.model (used by self-play)."""
+def make_enemy_player(
+    config: EnemyConfig,
+    decision_interval: int,
+    model_path: str | None = None,
+    briefing: Callable[[], EnemyBriefing | None] = lambda: None,
+):
+    """The enemy player for a game. `model_path` overrides config.model (used by self-play);
+    `briefing` tells the scripted enemy how to fight the current fight."""
     race = Race[config.race]
     if config.mode == "builtin":
         return Computer(race, Difficulty[config.difficulty])
     if config.mode == "scripted":
-        return Bot(race, ScriptedEnemyBot(decision_interval), name="ScriptedEnemy")
+        return Bot(race, ScriptedEnemyBot(decision_interval, briefing), name="ScriptedEnemy")
     return Bot(race, FrozenEnemyBot(decision_interval, config.task, model_path or config.model), name="FrozenEnemy")

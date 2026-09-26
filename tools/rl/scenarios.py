@@ -3,9 +3,11 @@ scenario is picked."""
 
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from sc2.ids.unit_typeid import UnitTypeId
+
+ENEMY_BEHAVIORS = ("chase", "leash")
 
 
 @dataclass(frozen=True)
@@ -16,10 +18,14 @@ class Scenario:
     weight: float = 1.0
     distance: tuple[float, float] = (8.0, 12.0)  # between the two groups at spawn
     time_limit: float = 45.0  # game seconds before the fight counts as a tie
+    # How the scripted enemy fights: "chase" never gives up; "leash" walks home once it gets
+    # farther than a leash distance (drawn from `leash` per fight) from where it spawned.
+    enemy_behavior: str = "chase"
+    leash: tuple[float, float] | None = None
 
     def swapped(self) -> "Scenario":
         """The same fight from the other side, for training the enemy's model in self-play."""
-        return Scenario(self.name, self.enemy, self.learner, self.weight, self.distance, self.time_limit)
+        return replace(self, learner=self.enemy, enemy=self.learner)
 
 
 def _parse_units(units: dict, where: str) -> dict[UnitTypeId, int]:
@@ -50,9 +56,15 @@ def parse_scenarios(items: list[dict]) -> list[Scenario]:
             weight=float(item.get("weight", 1.0)),
             distance=(float(low), float(high)),
             time_limit=float(item.get("time_limit", 45.0)),
+            enemy_behavior=item.get("enemy_behavior", "chase"),
+            leash=tuple(float(value) for value in item["leash"]) if "leash" in item else None,
         )
         if scenario.weight <= 0 or not 0 < low <= high:
             raise ValueError(f"scenario '{name}': weight must be positive and 0 < distance low <= high")
+        if scenario.enemy_behavior not in ENEMY_BEHAVIORS:
+            raise ValueError(f"scenario '{name}': enemy_behavior must be one of {', '.join(ENEMY_BEHAVIORS)}")
+        if scenario.enemy_behavior == "leash" and not (scenario.leash and 0 < scenario.leash[0] <= scenario.leash[1]):
+            raise ValueError(f"scenario '{name}': a leash scenario needs 'leash: [low, high]' with 0 < low <= high")
         scenarios.append(scenario)
     if len({s.name for s in scenarios}) != len(scenarios):
         raise ValueError("scenario names must be unique")

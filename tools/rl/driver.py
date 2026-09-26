@@ -35,7 +35,7 @@ from sc2.sc2process import KillSwitch
 from sc2.units import Units
 
 from tools.rl.config import TrainingConfig
-from tools.rl.enemies import make_enemy_player
+from tools.rl.enemies import EnemyBriefing, make_enemy_player
 from tools.rl.scenarios import Scenario, spawn_centers
 from tools.rl.kiting import KiteMeter
 from tools.rl.task import FightSnapshot, MicroTask, life
@@ -113,6 +113,7 @@ class GameDriver:
         self.learner_bot: LearnerBot | None = None
         self.events: asyncio.Queue | None = None
         self.episode: Episode | None = None
+        self.enemy_briefing: EnemyBriefing | None = None  # read by the scripted enemy every step
         self.pending_reward = 0.0
         self._waiter: asyncio.Future | None = None
         self._waiting_for: str | None = None  # "ready" or "decide" once the env has seen the request
@@ -141,6 +142,9 @@ class GameDriver:
             center = bot.game_info.map_center
             learner_center, enemy_center = spawn_centers((center.x, center.y), episode.scenario, self.rng)
             episode.learner_center, episode.enemy_center = Point2(learner_center), Point2(enemy_center)
+            scenario = episode.scenario
+            leash = self.rng.uniform(*scenario.leash) if scenario.leash else 0.0
+            self.enemy_briefing = EnemyBriefing(scenario.enemy_behavior, episode.enemy_center, leash)
             me, them = bot.player_id, 3 - bot.player_id
             await bot.client.debug_create_unit(
                 [(type_id, count, episode.learner_center, me) for type_id, count in episode.scenario.learner.items()]
@@ -216,6 +220,7 @@ class GameDriver:
             "kite_share": episode.kite_meter.share,
         }))
         self.episode = None
+        self.enemy_briefing = None
 
     # ----- env side (called by the Gymnasium env, runs the loop until the next event) -----
 
@@ -228,7 +233,8 @@ class GameDriver:
         self._waiter, self._waiting_for = None, None
 
         learner = Bot(Race[self.config.learner.race], LearnerBot(self), name="Learner")
-        enemy = make_enemy_player(self.config.enemy, self.config.decision_interval)
+        self.enemy_briefing = None
+        enemy = make_enemy_player(self.config.enemy, self.config.decision_interval, briefing=lambda: self.enemy_briefing)
         game_map = maps.get(self.config.map)
 
         if isinstance(enemy, Bot):
