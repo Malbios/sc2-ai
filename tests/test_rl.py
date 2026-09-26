@@ -268,5 +268,31 @@ class KiteMeterTest(unittest.TestCase):
         self.meter.update(self.stalker, [])
 
 
+class LearnerBotTest(unittest.TestCase):
+    def test_task_gets_the_map_when_the_game_starts(self):
+        import asyncio
+        from types import SimpleNamespace
+
+        from tools.rl.driver import LearnerBot
+
+        class RecordingTask(MicroTask):
+            game_info = None
+
+            def start_game(self, game_info):
+                self.game_info = game_info
+
+        class StandInClient:
+            game_step = 1
+
+            async def debug_show_map(self):
+                pass
+
+        task = RecordingTask()
+        bot = LearnerBot(SimpleNamespace(config=SimpleNamespace(decision_interval=3), task=task))
+        bot.client, bot.game_info = StandInClient(), "the map"
+        asyncio.run(bot.on_start())
+        self.assertEqual(task.game_info, "the map")
+
+
 if __name__ == "__main__":
     unittest.main()

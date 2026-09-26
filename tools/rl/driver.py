@@ -75,6 +75,7 @@ class LearnerBot(BotAI):
         # barely changes what a unit would see anyway. Only the learner may send this: it's one
         # toggle for the whole game, so a second client sending it turns vision off again.
         await self.client.debug_show_map()
+        self.driver.task.start_game(self.game_info)
 
     async def on_step(self, iteration: int):
         await self.driver.learner_step(self)

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from gymnasium import spaces
+from sc2.game_info import GameInfo
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -40,6 +41,9 @@ class MicroTask:
     def apply(self, unit: Unit, action: int, allies: Units, enemies: Units) -> None:
         """Turn the model's choice into python-sc2 commands for `unit`."""
         raise NotImplementedError
+
+    def start_game(self, game_info: GameInfo) -> None:
+        """Called once per game before any fight, for tasks that need the map (e.g. its pathing grid)."""
 
     def start_episode(self) -> None:
         """Called when a fight starts, for tasks that keep state across decisions."""
