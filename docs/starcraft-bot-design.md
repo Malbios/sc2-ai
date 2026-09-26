@@ -190,7 +190,23 @@ Training lives outside the bot:
 - **First milestone:** reproduce a known result ("1 stalker vs 2 roaches") to prove the tooling
   works before training real Zerg models.
 
-What the first milestone taught us so far (stalker kiting, 2026-09; not reached yet):
+What the first milestone taught us (stalker kiting, 2026-09; 1 stalker vs 1 roach reached, 1 vs 2
+next):
+
+- **Why sharknice's setup learns kiting and ours first didn't.** Two causes, each confirmed by
+  changing only that one thing (CooldownKiteTask on MicroTraining410, 1 stalker vs 1 roach):
+  - His enemy is the built-in AI. On his map both start locations are at the center, so its roach
+    defends the center: it chases, gives up at the edge of its leash and walks back. Every time
+    it turns around, the stalker gets free shots, so even clumsy kiting pays from the first
+    fights. Trained that way (his learning settings), the model kited: 5% life lost against the
+    built-in AI, and 30% against a roach that never gives up (the hand-written kite rule: 34%).
+  - Against a roach that never gives up, attacking non-stop also wins 1v1, and his learning rate
+    (0.01 with 16 epochs per batch) stops exploration within ~20k decisions, so the model locked
+    onto attack-only. At learning rate 0.0003 it kept exploring and learned kiting against that
+    roach directly: 37% life lost, backing off in 55% of the moments that call for it.
+- **At learning rate 0.01, keep checkpoints.** The built-in AI model kited well for most of the
+  run and flipped to "always retreat" in its last ~3,000 decisions, which is what got saved as
+  final. The checkpoint at 50k decisions is the good model.
 
 - **Check that the enemy actually fights.** With the built-in AI controlling the spawned roaches,
   they retreated whenever the fight looked bad for them. The stalker "won" 100% by chasing them,
