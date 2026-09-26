@@ -20,21 +20,24 @@ enemy:
   # model: models/roach/final.zip              # frozen: the enemy's trained model
 
 scenarios:
-  # The easy fight is there so the model wins early on and learns that shooting pays off. With
-  # only the hard fight it never won once and settled on running away (0% wins after 400k steps).
-  - name: stalker_vs_1_roach
-    learner: {Stalker: 1}
-    enemy: {Roach: 1}
-    distance: [9, 11]
-    time_limit: 60
-    weight: 1
-
   - name: stalker_vs_2_roaches
     learner: {Stalker: 1}
     enemy: {Roach: 2}
     distance: [9, 11]        # between the groups at spawn (stalker range 6, roach range 4)
     time_limit: 60           # game seconds, then a tie (perfect kiting needs ~25s of shooting)
     weight: 1
+
+# PPO settings, mirroring the RL Matrix run that learned this fight. Left out, a setting keeps
+# Stable-Baselines3's cautious default (learning_rate 0.0003, n_steps 1024, batch_size 256,
+# n_epochs 10, net_arch [64, 64]), which found no kiting in 400k steps.
+ppo:
+  learning_rate: 0.01        # RL Matrix lr 1E-02
+  n_steps: 256               # decisions per game before each update; x 4 games ~ RL Matrix memorySize 1000
+  batch_size: 32
+  n_epochs: 16               # RL Matrix ppoEpochs
+  gamma: 0.99
+  ent_coef: 0.01             # RL Matrix entropyCoefficient
+  net_arch: [128, 128]       # RL Matrix width 128; two layers assumed
 
 # Self-play: uncomment to have both sides learn. Each round trains one side against a frozen copy
 # of the other, then they swap. Uses two SC2 clients per environment.
