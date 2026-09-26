@@ -252,7 +252,17 @@ Training:
   smarter rule as the bar too. The model plays differently from that rule: it spends about two
   thirds of its decisions near a wall, where the rule would not be.
 - **Evaluate checkpoints, not only the final model.** Training win rates swing by 20 points
-  between batches, and the best model is often an earlier checkpoint.
+  between batches, and the best model is often an earlier checkpoint. Training on to 2M decisions
+  gave checkpoints between 76% and 90%; none matched the 98% at 1.5M.
+- **Training win rates run far below evaluated ones.** During training the model samples its
+  actions to keep exploring; evaluation always takes its most likely action. 85% in training was
+  98% evaluated, 60% was 74%.
+- **A model can be tuned to its training enemy.** Against the built-in AI's roaches (which give
+  up and walk home) the 98% model won everything but lost 30% of its life, while the kite and
+  smart rules lost none. It trades life for speed, which only pays against enemies that never stop
+  chasing. Keep the script as the fallback where it plays better.
+- **Know where a model's limit is.** Against 3 roaches, everything lost: the 98% model won 0% (it
+  only sees the 2 closest), the smart rule 2%, the kite rule 0%.
 - **Training takes much longer when the task is richer.** From scratch with 10 actions, the model
   won its 1-roach fights early, but no 2-roach fight until ~150k decisions, although both were
   mixed in from the start (75% 2 roaches, 25% 1 roach). Then it climbed slowly.
@@ -263,6 +273,10 @@ Tooling pitfalls:
   switch it off again.
 - sharknice's MicroTraining map turns fog off in its map script. Combined with `debug_show_map`,
   enemy units became untargetable snapshots. MicroTraining410 is a 4.10 port without that script.
+- An SC2 game can crash mid-fight in long runs ("not in a game"). The driver must end that fight
+  and restart the game; raising instead hung the whole training. Stop the two clients of a game
+  together, and cancel each only once: python-sc2 exits the process when a request is cancelled
+  twice.
 - python-sc2 details: count enemies as dead only via `state.dead_units`, and save
   replays only while the learner is waiting for its next step.
 
