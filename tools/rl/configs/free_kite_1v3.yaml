@@ -1,0 +1,22 @@
+# FreeKiteTask against 3 roaches, for evaluating models trained on free_kite_1v2.yaml. The model
+# only sees the 2 closest roaches, so the third one is invisible to it until it gets closer.
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/free_kite_1v3.yaml --model models/free-kite-1v2-2m/final.zip --episodes 200
+
+map: MicroTraining410
+decision_interval: 3
+
+learner:
+  race: Terran
+  task: tools.rl.examples.free_kite_task:FreeKiteTask
+
+enemy:
+  mode: scripted             # always attacks the closest unit, never gives up
+  race: Terran
+
+scenarios:
+  - name: stalker_vs_3_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 3}
+    distance: [10, 10]
+    time_limit: 160
