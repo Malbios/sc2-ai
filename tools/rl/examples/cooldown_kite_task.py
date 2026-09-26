@@ -18,6 +18,10 @@ from tools.rl.task import FightSnapshot, MicroTask
 ATTACK_CLOSEST, RETREAT_FROM_CLOSEST = range(2)
 RETREAT_MARGIN = 4.0
 
+# Center-to-center distances for a stalker and a roach: range plus both radii (0.625 and 1).
+ROACH_REACH = 5.5
+STALKER_REACH = 7.5
+
 
 class CooldownKiteTask(MicroTask):
     observation_space = spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32)
@@ -36,6 +40,17 @@ class CooldownKiteTask(MicroTask):
             "retreat": lambda observation: RETREAT_FROM_CLOSEST,
             "kite": lambda observation: ATTACK_CLOSEST if observation[0] == 0 else RETREAT_FROM_CLOSEST,
         }
+
+    def situation(self, observation: np.ndarray) -> str:
+        cooldown, distance = observation[0], observation[1]
+        weapon = "weapon ready" if cooldown == 0 else "weapon cooling"
+        if distance < ROACH_REACH:
+            band = f"< {ROACH_REACH}"
+        elif distance < STALKER_REACH:
+            band = f"{ROACH_REACH}-{STALKER_REACH}"
+        else:
+            band = f">= {STALKER_REACH}"
+        return f"{weapon}, {band}"
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """Weapon cooldown, distance to the closest enemy, and how much that distance grew since

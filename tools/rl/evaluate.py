@@ -5,6 +5,7 @@
     python -m tools.rl.evaluate --config ... --baseline kite   # a task's hand-written policy
     python -m tools.rl.evaluate --config ... --model ... --enemy-mode builtin
     python -m tools.rl.evaluate --config ... --model ... --replay models/stalker/eval.SC2Replay
+    python -m tools.rl.evaluate --config ... --model ... --compare-with kite
 
 The model acts deterministically (always its most likely action). --replay saves every evaluated
 fight, back to back, as one SC2 4.10 replay (open it in sc2-observer).
@@ -41,6 +42,34 @@ def summarize(fights: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def compare(decisions: list[dict]) -> str:
+    """One table per scenario, a row per situation: how many decisions fell into it, their share
+    of the scenario's decisions, and how often the model picked the baseline's action, overall
+    and within won and lost fights ('-' when there were none)."""
+    by_scenario = defaultdict(lambda: defaultdict(list))
+    for decision in decisions:
+        by_scenario[decision["scenario"]][decision["situation"]].append(decision)
+
+    agreement = lambda rows: f"{sum(r['agree'] for r in rows) / len(rows):.0%}" if rows else "-"
+    tables = []
+    for scenario, situations in sorted(by_scenario.items()):
+        total = sum(len(rows) for rows in situations.values())
+        width = max([9] + [len(name) for name in situations])
+        lines = [
+            scenario,
+            f"  {'situation':<{width}}  decisions  share  agree  agree in wins  agree in losses",
+        ]
+        for name, rows in sorted(situations.items()):
+            wins = [r for r in rows if r["outcome"] == "win"]
+            losses = [r for r in rows if r["outcome"] == "loss"]
+            lines.append(
+                f"  {name:<{width}}  {len(rows):>9}  {len(rows) / total:>5.0%}  {agreement(rows):>5}"
+                f"  {agreement(wins):>13}  {agreement(losses):>15}"
+            )
+        tables.append("\n".join(lines))
+    return "\n\n".join(tables)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
@@ -51,7 +80,10 @@ def main():
     parser.add_argument("--episodes", type=int, default=20, help="fights per scenario")
     parser.add_argument("--enemy-mode", choices=ENEMY_MODES, help="overrides the config's enemy mode")
     parser.add_argument("--replay", help="save all evaluated fights as one .SC2Replay at this path")
+    parser.add_argument("--compare-with", help="with --model: also report where the model's actions differ from this baseline's")
     args = parser.parse_args()
+    if args.compare_with and not args.model:
+        parser.error("--compare-with needs --model")
 
     config = load_config(args.config)
     if args.enemy_mode:
@@ -64,24 +96,31 @@ def main():
         model = PPO.load(args.model, device="cpu")
         choose_action = lambda observation: model.predict(observation, deterministic=True)[0]
     elif args.baseline:
-        baselines = env.task.baseline_policies()
-        if args.baseline not in baselines:
-            parser.error(f"the task has no baseline '{args.baseline}'. Available: {', '.join(baselines) or 'none'}")
-        choose_action = baselines[args.baseline]
+        choose_action = _baseline(env, args.baseline, parser)
     else:
         choose_action = lambda observation: env.action_space.sample()
+    rule = _baseline(env, args.compare_with, parser) if args.compare_with else None
 
-    fights = []
+    fights, decisions = [], []
     try:
         for scenario in config.scenarios:
             for episode in range(args.episodes):
                 obs, _ = env.reset(options={"scenario": scenario.name})
+                fight_decisions = []
                 while True:
-                    obs, _, terminated, truncated, info = env.step(choose_action(obs))
+                    action = choose_action(obs)
+                    if rule:
+                        fight_decisions.append({
+                            "scenario": scenario.name,
+                            "situation": env.task.situation(obs),
+                            "agree": int(action) == int(rule(obs)),
+                        })
+                    obs, _, terminated, truncated, info = env.step(action)
                     if terminated or truncated:
                         break
                 if "scenario" in info:
                     fights.append(info)
+                    decisions += [{**d, "outcome": info["outcome"]} for d in fight_decisions]
                 print(f"{scenario.name} {episode + 1}/{args.episodes}: {info.get('outcome')}", flush=True)
         if args.replay:
             replay = Path(args.replay).resolve()
@@ -93,6 +132,17 @@ def main():
 
     print()
     print(summarize(fights))
+    if rule:
+        print()
+        print(f"Model vs baseline '{args.compare_with}':")
+        print(compare(decisions))
+
+
+def _baseline(env: SC2MicroEnv, name: str, parser: argparse.ArgumentParser):
+    baselines = env.task.baseline_policies()
+    if name not in baselines:
+        parser.error(f"the task has no baseline '{name}'. Available: {', '.join(baselines) or 'none'}")
+    return baselines[name]
 
 
 if __name__ == "__main__":

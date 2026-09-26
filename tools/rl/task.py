@@ -48,6 +48,10 @@ class MicroTask:
         """Hand-written policies (observation -> action) a trained model should be compared with."""
         return {}
 
+    def situation(self, observation: np.ndarray) -> str:
+        """A short label grouping observations when comparing a model with a baseline."""
+        return "all"
+
     def reward(self, before: FightSnapshot, after: FightSnapshot) -> float:
         """Shared team reward for one game step: the share of the enemy's starting life taken
         away, minus the share of our own starting life lost."""

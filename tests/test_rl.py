@@ -217,6 +217,15 @@ class BaselinePolicyTest(unittest.TestCase):
         self.assertEqual([policies["kite"](ready), policies["kite"](cooling)], [0, 1])
         self.assertEqual(MicroTask().baseline_policies(), {})
 
+    def test_situations(self):
+        from tools.rl.examples.cooldown_kite_task import CooldownKiteTask
+
+        situation = CooldownKiteTask().situation
+        self.assertEqual(situation([0.0, 4.0, 0.0]), "weapon ready, < 5.5")
+        self.assertEqual(situation([12.0, 6.0, 0.0]), "weapon cooling, 5.5-7.5")
+        self.assertEqual(situation([3.0, 7.5, 0.0]), "weapon cooling, >= 7.5")
+        self.assertEqual(MicroTask().situation([0.0]), "all")
+
 
 class KiteMeterTest(unittest.TestCase):
     """Roach reach against the stand-in stalker: range 4 + radii 1 = 5, so gaps up to 7 are close."""
