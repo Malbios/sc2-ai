@@ -243,6 +243,16 @@ Training:
   the closest roach and can only run straight away from it; it doesn't know where the second roach
   or the map edge is. Given that, the rule is already the best it can do. Beating it needs inputs
   and actions a rule doesn't use well.
+- **With more inputs and actions, training beat the kite rule.** FreeKiteTask adds the second
+  roach, the free distance in 8 directions, "attack weakest" and 8 run directions (same reward).
+  Against 2 roaches (200 fights each): the kite rule 39%, the model 52% after 500k decisions and
+  74% after 1M (still rising). A hand-written rule using the same extras (attack the weakest, run
+  away from both roaches toward open ground) wins 82%, so richer tasks need a smarter rule as the
+  bar too. The model plays differently from that rule: it spends about two thirds of its decisions
+  near a wall, where the rule would not be.
+- **Training takes much longer when the task is richer.** From scratch with 10 actions, the model
+  won no 2-roach fight for the first ~150k decisions (it learned the 1-roach fight first), then
+  climbed slowly.
 
 Tooling pitfalls:
 
