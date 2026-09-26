@@ -1,0 +1,40 @@
+# FreeKiteTask against 2 roaches: the model sees both roaches and the walls, picks its target and
+# runs in any of 8 directions. Trained from scratch with gentle settings; the goal is to beat the
+# task's kite and smart baselines (python -m tools.rl.evaluate ... --baseline smart).
+#
+#   python -m tools.rl.train --config tools/rl/configs/free_kite_1v2.yaml --timesteps 500000 --out models/free-kite-1v2
+
+map: MicroTraining410
+decision_interval: 3
+
+learner:
+  race: Terran
+  task: tools.rl.examples.free_kite_task:FreeKiteTask
+
+enemy:
+  mode: scripted             # always attacks the closest unit, never gives up
+  race: Terran
+
+scenarios:
+  - name: stalker_vs_2_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 2}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 3
+
+  - name: stalker_vs_1_roach   # kept in the mix so the model doesn't forget the easy fight
+    learner: {Stalker: 1}
+    enemy: {Roach: 1}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  ent_coef: 0.01
+  net_arch: [128, 128]

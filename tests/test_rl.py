@@ -268,6 +268,70 @@ class KiteMeterTest(unittest.TestCase):
         self.meter.update(self.stalker, [])
 
 
+class StandInGrid:
+    """A pathing grid, pathable (1) everywhere except the cells listed as walls."""
+
+    def __init__(self, width, height, walls=()):
+        self.width, self.height, self.walls = width, height, set(walls)
+
+    def __getitem__(self, cell):
+        return 0 if cell in self.walls else 1
+
+
+class FreeKiteTaskTest(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.free_kite_task import FreeKiteTask
+
+        self.task = FreeKiteTask()
+        # A wall along x = 14 (4 east of the stalker); the grid ends at y = 20 (10 north).
+        walls = [(14, y) for y in range(20)]
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 20, walls)))
+        self.stalker = StandInUnit(1, 10.5, 10.5, cooldown=15, shield=40)
+        self.near = StandInUnit(2, 10.5, 5.5, health=100, health_max=145, shield=0, shield_max=0)
+        self.far = StandInUnit(3, 4.5, 10.5, health=50, health_max=145, shield=0, shield_max=0)
+
+    def test_observation(self):
+        observation = self.task.observe(self.stalker, [], [self.far, self.near]).astype(float).round(3).tolist()
+        self.assertEqual(observation[:3], [0.5, 1.0, 0.5])
+        self.assertEqual(observation[3:8], [1.0, 0.0, -0.5, 0.5, round(100 / 145, 3)])  # closest first
+        self.assertEqual(observation[8:13], [1.0, -0.6, 0.0, 0.6, round(50 / 145, 3)])
+        east, north, west, south = observation[13], observation[15], observation[17], observation[19]
+        self.assertEqual([east, north, west, south], [0.3, 0.9, 1.0, 1.0])
+
+    def test_missing_enemy_is_zeros(self):
+        observation = self.task.observe(self.stalker, [], [self.near])
+        self.assertEqual(observation[8:13].tolist(), [0.0] * 5)
+
+    def test_actions(self):
+        from tools.rl.examples.free_kite_task import FIRST_MOVE
+
+        enemies = [self.far, self.near]
+        self.task.apply(self.stalker, 0, [], enemies)
+        self.task.apply(self.stalker, 1, [], enemies)
+        self.task.apply(self.stalker, FIRST_MOVE + 2, [], enemies)  # north
+        (_, closest), (_, weakest), (_, destination) = self.stalker.commands
+        self.assertEqual((closest.tag, weakest.tag), (2, 3))
+        self.assertEqual((round(destination.x, 3), round(destination.y, 3)), (10.5, 13.5))
+
+    def test_baselines_and_situation(self):
+        from tools.rl.examples.free_kite_task import FIRST_MOVE
+
+        policies = self.task.baseline_policies()
+        cooling = self.task.observe(self.stalker, [], [self.far, self.near])
+        self.assertEqual(policies["kite"](cooling), FIRST_MOVE + 2)  # straight away from the roach south
+        # Away from both roaches (south and west) points northeast, but the wall 3 east makes north the better run.
+        self.assertEqual(policies["smart"](cooling), FIRST_MOVE + 2)
+        self.assertEqual(self.task.situation(cooling), "weapon cooling, open ground")
+
+        self.stalker.weapon_cooldown = 0
+        self.stalker.position = Point2((12.5, 10.5))
+        ready = self.task.observe(self.stalker, [], [self.far, self.near])
+        self.assertEqual([policies["attack"](ready), policies["kite"](ready), policies["smart"](ready)], [0, 0, 1])
+        self.assertEqual(self.task.situation(ready), "weapon ready, near a wall")
+
+
 class LearnerBotTest(unittest.TestCase):
     def test_task_gets_the_map_when_the_game_starts(self):
         import asyncio
