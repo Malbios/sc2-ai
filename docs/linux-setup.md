@@ -56,7 +56,8 @@ python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --
 - `--timesteps` counts decisions, not fights. A fight is roughly 50 to 300 decisions per unit.
 - `--n-envs` sets how many games train in parallel (default 4). Measured on 8 cores: 4 games with a
   scripted enemy (two SC2 processes each) use all cores and make about 160 decisions per second.
-- `--resume models/stalker/final.zip` continues training an existing model.
+- `--resume models/stalker/final.zip` continues training an existing model, with the config's
+  `ppo` settings (except the network shape, which is part of the saved model).
 - The config's `ppo:` section sets the learning settings (learning rate, batch size, network size,
   ...). Settings left out keep Stable-Baselines3's defaults.
 - While training, the log prints `fights/<scenario>/win_rate` and `damage_traded` over the last
