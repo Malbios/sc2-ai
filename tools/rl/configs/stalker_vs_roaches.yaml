@@ -20,6 +20,15 @@ enemy:
   # model: models/roach/final.zip              # frozen: the enemy's trained model
 
 scenarios:
+  # The easy fight is there so the model wins early on and learns that shooting pays off. With
+  # only the hard fight it never won once and settled on running away (0% wins after 400k steps).
+  - name: stalker_vs_1_roach
+    learner: {Stalker: 1}
+    enemy: {Roach: 1}
+    distance: [9, 11]
+    time_limit: 60
+    weight: 1
+
   - name: stalker_vs_2_roaches
     learner: {Stalker: 1}
     enemy: {Roach: 2}
