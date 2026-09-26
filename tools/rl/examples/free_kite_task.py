@@ -121,14 +121,15 @@ class TrackingKiteTask(FreeKiteTask):
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """FreeKiteTask's inputs, then each seen enemy's x and y movement since this unit's last
         decision (zero on its first), in the same closest-first order, divided by MOVEMENT_SCALE."""
-        movement = np.zeros(2 * SEEN_ENEMIES, dtype=np.float32)
+        observation = super().observe(unit, allies, enemies)  # sized by this task's space, movement zero
         for index, enemy in enumerate(_by_distance(unit, enemies)[:SEEN_ENEMIES]):
             last = self._last_positions.get((unit.tag, enemy.tag))
             if last is not None:
-                movement[2 * index:2 * index + 2] = (enemy.position - last) / MOVEMENT_SCALE
+                start = FIRST_MOVEMENT + 2 * index
+                observation[start:start + 2] = (enemy.position - last) / MOVEMENT_SCALE
         for enemy in enemies:
             self._last_positions[(unit.tag, enemy.tag)] = enemy.position
-        return np.concatenate([super().observe(unit, allies, enemies), movement])
+        return observation
 
 
 def _kite_rule(observation: np.ndarray) -> int:

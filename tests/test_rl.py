@@ -302,7 +302,9 @@ class FreeKiteTaskTest(unittest.TestCase):
         self.far = StandInUnit(3, 4.5, 10.5, health=50, health_max=145, shield=0, shield_max=0)
 
     def test_observation(self):
-        observation = self.task.observe(self.stalker, [], [self.far, self.near]).astype(float).round(3).tolist()
+        raw = self.task.observe(self.stalker, [], [self.far, self.near])
+        self.assertEqual(raw.shape, self.task.observation_space.shape)
+        observation = raw.astype(float).round(3).tolist()
         self.assertEqual(observation[:3], [0.5, 1.0, 0.5])
         self.assertEqual(observation[3:8], [1.0, 0.0, -0.5, 0.5, round(100 / 145, 3)])  # closest first
         self.assertEqual(observation[8:13], [1.0, -0.6, 0.0, 0.6, round(50 / 145, 3)])
@@ -373,6 +375,7 @@ class TrackingKiteTaskTest(unittest.TestCase):
         free = FreeKiteTask()
         free.start_game(self.game_info)
         observation = self.task.observe(self.stalker, [], [self.a, self.b])
+        self.assertEqual(observation.shape, self.task.observation_space.shape)
         self.assertEqual(observation[:21].tolist(), free.observe(self.stalker, [], [self.a, self.b]).tolist())
         observation[-4:] = -5.0  # movement inputs must not look like a nearby wall
         self.assertEqual(self.task.situation(observation), "weapon cooling, open ground")
