@@ -7,10 +7,13 @@ The current goal is to find out whether RL micro beats scripted micro. The bot c
 
 ## 1. Training toolkit, for single-unit models
 
-- [ ] Research and upgrades for spawned units (Burrow, Tunneling Claws, Glial Reconstitution,
-      Grooved Spines, Muscular Augments)
-- [ ] Actions that cast abilities: burrow and unburrow; bile at a point (a target's position plus
-      a lead in one of several directions)
+- [x] Research and upgrades for spawned units (`learner.upgrades`, any upgrade python-sc2 knows)
+- [x] Actions that cast abilities: burrow and unburrow
+- [ ] Actions that cast abilities: bile at a point (a target's position plus a lead in one of
+      several directions)
+- [x] Enemy detection: an Overseer that stays with its army (`enemy_support`), and tasks that
+      see how close detection is
+- [x] Start a fresh SC2 game before SC2's 6.5-game-hour limit
 - [ ] Enemies that move while fighting: a scripted enemy that kites, and one that walks out of
       bile
 - [ ] Enemy unit types the bot will really face (marines, marauders, zealots, stalkers,
@@ -22,9 +25,9 @@ The current goal is to find out whether RL micro beats scripted micro. The bot c
 Each: a scripted baseline first, then train, then evaluate (200 fights, per checkpoint) against
 chasing, leashing and built-in AI enemies. It counts as a win for RL only if it beats its script.
 
-- [ ] Roach: kiting plus when to burrow and heal (baseline: burrow below 40% life, unburrow
-      above 70%)
-- [ ] Ravager: bile aiming against moving enemies (baseline: bile where the target is now)
+- [ ] Ravager (next): bile aiming against moving enemies (baseline: bile where the target is now)
+- Roach, parked: the burrow rule already wins everything without detection, and nothing wins
+  with an Overseer, so there's no room to beat it (see the design doc's roach lessons)
 - [ ] Hydralisk: focus fire and kiting in groups (needs the group items below)
 
 ## 3. Training toolkit, for groups

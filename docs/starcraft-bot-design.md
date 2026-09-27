@@ -302,16 +302,36 @@ Training:
   61-second fights), and the 750k checkpoint only 82%. It waits too long against an enemy it has
   not seen; the smart rule still wins 100% there with no damage.
 
+What the roach attempt taught us (burrow micro, 2026-09). No model was trained: the baselines
+showed the task can't tell whether RL beats a rule.
+
+- **Research for spawned units:** spawn the research buildings and research with fast build and
+  free resources (`learner.upgrades` in the config). python-sc2's `debug_upgrade` would also grant
+  attack and armor upgrades.
+- **Without detection, burrowing is a free heal.** A burrowed roach heals 7 life per second and
+  the enemy can't touch it. Against scripted roaches (200 fights each) the burrow rule (burrow
+  below 40% life, unburrow above 70%) won 98 to 100% of 1 vs 2 and 2 vs 3, and 57 to 68% of
+  3 vs 5 with the rest running out of the 160-second limit. Attack and the smart kite rule lost
+  every fight.
+- **With an Overseer that stays with its army, burrowing is useless.** A burrowed roach moves
+  slower than its chasers and can't leave detection; both burrow rules lost every fight (5-fight
+  checks).
+- **So burrow micro is close to all-or-nothing** in these fights, and a fixed rule already gets
+  what there is. Pick units whose rule has clear room to improve before building a task.
+
 Tooling pitfalls:
 
 - `debug_show_map` is one game-wide toggle, so only one client may send it; two clients sending it
   switch it off again.
 - sharknice's MicroTraining map turns fog off in its map script. Combined with `debug_show_map`,
   enemy units became untargetable snapshots. MicroTraining410 is a 4.10 port without that script.
-- An SC2 game can crash mid-fight in long runs ("not in a game"). The driver must end that fight
-  and restart the game; raising instead hung the whole training. Stop the two clients of a game
-  together, and cancel each only once: python-sc2 exits the process when a request is cancelled
-  twice.
+- SC2 ends every game at game loop 524,288 (2^19, 6.5 game hours); python-sc2 then reports "not
+  in a game". One game serves a whole run, so runs past 6.5 game hours per game hit it (once per
+  game at 1M decisions). The driver now leaves the game between fights shortly before the limit
+  and starts a fresh one. Any game ending with two bots makes one client fail like a crash, so a
+  planned restart is marked as such. Unplanned crashes must still end the fight and restart the
+  game (raising instead hung the whole training). Stop the two clients of a game together, and
+  cancel each only once: python-sc2 exits the process when a request is cancelled twice.
 - python-sc2 details: count enemies as dead only via `state.dead_units`, and save
   replays only while the learner is waiting for its next step.
 
