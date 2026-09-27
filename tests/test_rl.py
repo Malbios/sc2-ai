@@ -625,6 +625,46 @@ class DriverCrashTest(unittest.TestCase):
         self.assertEqual(self.games_started, MAX_GAME_RESTARTS + 1)
         self.assertIsInstance(raised.exception.__cause__, self.ProtocolError)
 
+    def test_leaves_the_game_between_fights_before_the_loop_limit(self):
+        from types import SimpleNamespace
+
+        from tools.rl.driver import GAME_LOOP_LIMIT
+
+        class StandInClient:
+            left = False
+
+            async def leave(self):
+                self.left = True
+
+        asked = []
+
+        class Asked(Exception):
+            pass
+
+        async def ask(event):
+            asked.append(event)
+            raise Asked  # stop here: the rest of the step needs a real game
+
+        self.driver._ask = ask
+        for game_loop, leaves in ((1000, False), (GAME_LOOP_LIMIT - 100, True)):
+            with self.subTest(game_loop=game_loop):
+                asked.clear()
+                self.driver.episode = None
+                bot = SimpleNamespace(client=StandInClient(), state=SimpleNamespace(game_loop=game_loop))
+                try:
+                    self.driver.loop.run_until_complete(self.driver.learner_step(bot))
+                except Asked:
+                    pass
+                self.assertEqual((bot.client.left, self.driver.restarting), (leaves, leaves))
+                self.assertEqual(asked, [] if leaves else [("ready", None)])
+
+    def test_a_planned_restart_is_not_reported_as_a_crash(self):
+        self.start_crashing_game()
+        self.driver.restarting = True
+        self.assertEqual(self.driver._next_event()[0], "game_over")
+        self.assertIn("fresh SC2 game", self.stderr.getvalue())
+        self.assertNotIn("crashed", self.stderr.getvalue())
+
     def test_a_failing_client_cancels_the_other(self):
         from tools.rl.driver import _run_together
 

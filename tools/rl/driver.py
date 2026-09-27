@@ -46,6 +46,10 @@ from tools.rl.task import FightSnapshot, MicroTask, life
 SPAWN_TIMEOUT_STEPS = 25
 # How often a game may be restarted in a row before the driver gives up.
 MAX_GAME_RESTARTS = 3
+# SC2 ends every game at this game loop (6.5 game hours), so the driver starts a fresh game
+# between fights shortly before that instead of losing a fight to it.
+GAME_LOOP_LIMIT = 2**19
+RESTART_MARGIN_LOOPS = int(22.4 * 60 * 10)
 ABORT = object()
 
 
@@ -117,6 +121,7 @@ class GameDriver:
         self.learner_bot: LearnerBot | None = None
         self.events: asyncio.Queue | None = None
         self.episode: Episode | None = None
+        self.restarting = False  # the game was left on purpose (see GAME_LOOP_LIMIT)
         self.enemy_briefing: EnemyBriefing | None = None  # read by the scripted enemy every step
         self.pending_reward = 0.0
         self._waiter: asyncio.Future | None = None
@@ -132,6 +137,12 @@ class GameDriver:
 
     async def learner_step(self, bot: BotAI):
         if self.episode is None:
+            if bot.state.game_loop > GAME_LOOP_LIMIT - RESTART_MARGIN_LOOPS:
+                # The enemy client then fails like after a crash, and the next reset starts a
+                # fresh game; `restarting` keeps that from being reported as a crash.
+                self.restarting = True
+                await bot.client.leave()
+                return
             self.episode = Episode(await self._ask(("ready", None)))
         episode = self.episode
 
@@ -236,6 +247,7 @@ class GameDriver:
             self.launch_delay = 0.0
         self.events = asyncio.Queue()
         self.episode = None
+        self.restarting = False
         self._waiter, self._waiting_for = None, None
 
         learner = Bot(Race[self.config.learner.race], LearnerBot(self), name="Learner")
@@ -263,10 +275,14 @@ class GameDriver:
             return ("game_over", None)
 
         kind, payload = self.loop.run_until_complete(wait())
-        if kind == "game_over" and not self.game_task.cancelled() and self.game_task.exception():
-            payload = self.game_task.exception()
-            print("SC2 game crashed, restarting on the next reset:", file=sys.stderr)
-            traceback.print_exception(payload, file=sys.stderr)
+        if kind == "game_over" and not self.game_task.cancelled():
+            error = self.game_task.exception()  # read even when expected, or asyncio reports it later
+            if self.restarting:
+                print("Starting a fresh SC2 game before SC2's game length limit", file=sys.stderr)
+            elif error:
+                payload = error
+                print("SC2 game crashed, restarting on the next reset:", file=sys.stderr)
+                traceback.print_exception(payload, file=sys.stderr)
         if kind in ("ready", "decide"):
             self._waiting_for = kind
         return kind, payload
