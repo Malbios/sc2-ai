@@ -284,8 +284,15 @@ Training:
   1% less per decision, about a third after 13 seconds, and life left is only paid in the win
   reward at the end. Against leashing roaches the smart rule's safe win takes 48 seconds (worth
   about 0.99^358 x 100 = 3 at the start), the model's trade 28 seconds with 21% lost (about
-  0.99^209 x 79 = 10). The model does what it is paid for. Not yet tested: gamma 0.999 (about 70
-  vs 64).
+  0.99^209 x 79 = 10). The model does what it is paid for.
+- **With gamma 0.999 the model learned to play safe.** Warm-started from the gamma 0.99 run's model
+  and trained 1M decisions more (only gamma changed), life lost against 2 leashing roaches fell
+  from 10% (250k) to 2 to 3% (750k and on), close to the rules' 0%. Against 2 chasing roaches it
+  kept winning (100% at 750k and final) and lost less life too (40 to 48% instead of about 75%),
+  in longer fights (37 to 46 seconds instead of 27). Against the built-in AI (never trained on)
+  the final model lost 23% of its life instead of 30%, but won only 94% (4% losses, 2% timeouts,
+  61-second fights), and the 750k checkpoint only 82%. It waits too long against an enemy it has
+  not seen; the smart rule still wins 100% there with no damage.
 
 Tooling pitfalls:
 
