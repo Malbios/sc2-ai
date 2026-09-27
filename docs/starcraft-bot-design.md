@@ -273,6 +273,19 @@ Training:
   roaches it stayed at 0 to 3% in training for the whole run: it never found kiting. Evaluated (200
   fights each, checkpoints from 1M on) it won 2 to 22% against 2 chasing roaches, and lost 25 to
   37% of its life against 2 leashing ones, worse than the 98% model (11%) and the rules (0%).
+- **Warm-start from a model that already has the hard skill.** `train --warm-start` copies a
+  model's weights into a task with more inputs at the end, with zero weight on the new ones, so it
+  first plays exactly like the old model. Started from the 98% model and trained 1M decisions on
+  the same mix (learning rate 0.0001), it kept the kite: 92 to 98% against 2 chasing roaches at
+  every checkpoint (98% at 1M). But it did not learn to play safe against quitters: life lost
+  against 2 leashing roaches went from 12% (250k) to 21% (1M), and against the built-in AI it lost
+  33% (the 98% model 30%).
+- **The discount factor can make taking damage the better deal.** With gamma 0.99 a reward counts
+  1% less per decision, about a third after 13 seconds, and life left is only paid in the win
+  reward at the end. Against leashing roaches the smart rule's safe win takes 48 seconds (worth
+  about 0.99^358 x 100 = 3 at the start), the model's trade 28 seconds with 21% lost (about
+  0.99^209 x 79 = 10). The model does what it is paid for. Not yet tested: gamma 0.999 (about 70
+  vs 64).
 
 Tooling pitfalls:
 
