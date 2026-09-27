@@ -266,6 +266,13 @@ Training:
 - **Training takes much longer when the task is richer.** From scratch with 10 actions, the model
   won its 1-roach fights early, but no 2-roach fight until ~150k decisions, although both were
   mixed in from the start (75% 2 roaches, 25% 1 roach). Then it climbed slowly.
+- **An easy enemy in the mix can keep the hard skill from being learned.** TrackingKiteTask
+  (FreeKiteTask plus how far each seen roach moved since the last decision) trained 2M decisions
+  from scratch against chasing and leashing roaches in equal parts. Against leashing roaches it won
+  90% in training within 250k decisions by trading hits until they walked away. Against chasing
+  roaches it stayed at 0 to 3% in training for the whole run: it never found kiting. Evaluated (200
+  fights each, checkpoints from 1M on) it won 2 to 22% against 2 chasing roaches, and lost 25 to
+  37% of its life against 2 leashing ones, worse than the 98% model (11%) and the rules (0%).
 
 Tooling pitfalls:
 
