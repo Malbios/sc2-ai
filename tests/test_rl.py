@@ -493,6 +493,73 @@ class RoachKiteTaskTest(unittest.TestCase):
         self.assertEqual(policies["careful_burrow"](self.observe()), BURROW)  # out of detection: safe to burrow
 
 
+class StandInCaster(StandInUnit):
+    def __call__(self, ability, target=None):
+        self.commands.append(("ability", ability, target))
+
+
+class RavagerTaskTest(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.ravager_task import RavagerTask
+
+        self.task = RavagerTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.ravager = StandInCaster(1, 20.5, 20.5, cooldown=15, health=120, health_max=120, shield=0, shield_max=0)
+        self.near = StandInUnit(2, 26.5, 20.5, health=145, health_max=145, shield=0, shield_max=0)  # 6 east
+        self.far = StandInUnit(3, 20.5, 12.5, health=145, health_max=145, shield=0, shield_max=0)  # 8 south
+
+    def observe(self):
+        return self.task.observe(self.ravager, [], [self.near, self.far])
+
+    def test_bile_ready_input(self):
+        from sc2.ids.ability_id import AbilityId
+
+        from tools.rl.examples.ravager_task import BILE_READY
+
+        self.assertEqual(self.observe().shape, self.task.observation_space.shape)
+        self.assertEqual(self.observe()[BILE_READY], 0.0)
+        self.task.see_abilities({1: {AbilityId.EFFECT_CORROSIVEBILE}})
+        self.assertEqual(self.observe()[BILE_READY], 1.0)
+
+    def test_bile_is_led_by_the_targets_movement(self):
+        from sc2.ids.ability_id import AbilityId
+
+        from tools.rl.examples.ravager_task import BILE_FLIGHT_SECONDS, DECISION_SECONDS, bile_action
+
+        self.observe()
+        self.near.position = Point2((26.1, 20.5))  # moved 0.4 toward the ravager since the last decision
+        self.observe()
+        enemies = [self.near, self.far]
+        self.task.apply(self.ravager, bile_action(0, 0), [], enemies)  # where it is now
+        self.task.apply(self.ravager, bile_action(0, 2), [], enemies)  # straight-line lead
+        self.task.apply(self.ravager, bile_action(1, 0), [], enemies)  # the second closest
+        (_, ability, now), (_, _, led), (_, _, second) = self.ravager.commands
+        self.assertEqual(ability, AbilityId.EFFECT_CORROSIVEBILE)
+        self.assertEqual(now, Point2((26.1, 20.5)))
+        self.assertAlmostEqual(led.x, 26.1 - 0.4 * BILE_FLIGHT_SECONDS / DECISION_SECONDS, places=4)
+        self.assertEqual(second, Point2((20.5, 12.5)))
+
+    def test_bile_baselines(self):
+        from sc2.ids.ability_id import AbilityId
+
+        from tools.rl.examples.ravager_task import NOW, STRAIGHT_LINE, bile_action
+
+        policies = self.task.baseline_policies()
+        not_ready = self.observe()
+        for name in ("bile_now", "bile_lead"):
+            self.assertEqual(policies[name](not_ready), policies["smart"](not_ready))
+        self.task.see_abilities({1: {AbilityId.EFFECT_CORROSIVEBILE}})
+        ready = self.observe()
+        self.assertEqual(policies["bile_now"](ready), bile_action(0, NOW))
+        self.assertEqual(policies["bile_lead"](ready), bile_action(0, STRAIGHT_LINE))
+        self.near.position = Point2((30.5, 20.5))
+        self.far.position = Point2((20.5, 10.5))  # both out of bile range
+        out_of_range = self.observe()
+        self.assertEqual(policies["bile_lead"](out_of_range), policies["smart"](out_of_range))
+
+
 class LeashOrderTest(unittest.TestCase):
     """A roach spawned at (20, 20) with a leash of 8, against a stalker it may chase."""
 
