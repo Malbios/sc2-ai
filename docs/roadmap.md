@@ -9,13 +9,13 @@ The current goal is to find out whether RL micro beats scripted micro. The bot c
 
 - [x] Research and upgrades for spawned units (`learner.upgrades`, any upgrade python-sc2 knows)
 - [x] Actions that cast abilities: burrow and unburrow
-- [ ] Actions that cast abilities: bile at a point (a target's position plus a lead in one of
-      several directions)
+- [x] Actions that cast abilities: bile at one of the 2 closest enemies with a lead along its
+      movement; tasks can see which abilities are ready
+- [x] A scripted enemy that steps out of bile (with a reaction time)
 - [x] Enemy detection: an Overseer that stays with its army (`enemy_support`), and tasks that
       see how close detection is
 - [x] Start a fresh SC2 game before SC2's 6.5-game-hour limit
-- [ ] Enemies that move while fighting: a scripted enemy that kites, and one that walks out of
-      bile
+- [ ] Enemies that move while fighting: a scripted enemy that kites
 - [ ] Enemy unit types the bot will really face (marines, marauders, zealots, stalkers,
       zerglings, roaches), not only roaches
 - [ ] Check each new task against the built-in AI too, as an enemy the model never trained on
@@ -25,7 +25,8 @@ The current goal is to find out whether RL micro beats scripted micro. The bot c
 Each: a scripted baseline first, then train, then evaluate (200 fights, per checkpoint) against
 chasing, leashing and built-in AI enemies. It counts as a win for RL only if it beats its script.
 
-- [ ] Ravager (next): bile aiming against moving enemies (baseline: bile where the target is now)
+- [ ] Ravager (next): bile aiming against moving enemies. Baselines measured; the bar per enemy is
+      the best rule (see the design doc's ravager table). Next: train on 1 vs 2 roaches, mixed.
 - Roach, parked: the burrow rule already wins everything without detection, and nothing wins
   with an Overseer, so there's no room to beat it (see the design doc's roach lessons)
 - [ ] Hydralisk: focus fire and kiting in groups (needs the group items below)

@@ -319,6 +319,29 @@ showed the task can't tell whether RL beats a rule.
 - **So burrow micro is close to all-or-nothing** in these fights, and a fixed rule already gets
   what there is. Pick units whose rule has clear room to improve before building a task.
 
+What the ravager baselines showed (bile, 2026-09). Bile lands about 1.6 s after the cast (radius
+0.5, 60 damage, ready again after about 7.3 s). Rules against scripted roaches, 200 fights each,
+1 ravager (win rate):
+
+| scenario | attack | smart (kite, no bile) | bile where it is now | bile with a straight-line lead |
+|---|---|---|---|---|
+| 1 vs 2, chasing | 0% | 0% | 0% | 4% |
+| 1 vs 2, dodging bile | 0% | 0% | 0% | 55% |
+| 1 vs 2, leashing | 0% | 100% (23% life lost) | 95% (44% lost) | 98% (42% lost) |
+| 1 vs 3, chasing / dodging | 0% | 0% | 0% | 0 to 1% |
+| 1 vs 3, leashing | 0% | 78% | 66% | 71% |
+
+- **Bile where the target is now misses anything that moves;** it dealt no more damage than not
+  casting at all. A straight-line lead nearly doubled the damage dealt against chasers.
+- **Enemies that step out of bile lose more.** While dodging they don't chase or shoot; the lead
+  rule won 55% against dodgers but 4% against chasers. That zoning is much of bile's value.
+- **No rule is best everywhere.** Against leashing roaches, biling cost life (the ravager steps
+  in to cast), so the no-bile kite rule was best. Unlike burrowing, this leaves a model room to
+  beat every rule by choosing when and where to bile.
+- The scripted dodge needs a reaction time (drawn per fight): a bile is visible about 1.4 s before
+  it lands, so an instant dodger escapes every bile. It also has to keep units from walking into
+  a bile, not only step out of one.
+
 Tooling pitfalls:
 
 - `debug_show_map` is one game-wide toggle, so only one client may send it; two clients sending it
