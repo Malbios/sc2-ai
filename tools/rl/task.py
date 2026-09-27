@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 from gymnasium import spaces
 from sc2.game_info import GameInfo
+from sc2.ids.ability_id import AbilityId
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -32,6 +33,7 @@ class MicroTask:
 
     observation_space: spaces.Box
     action_space: spaces.Discrete
+    wants_abilities = False  # see_abilities costs one extra request to SC2 per game step
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """What the model sees when deciding for `unit`. `allies` excludes the unit itself;
@@ -51,6 +53,11 @@ class MicroTask:
     def see_detectors(self, detectors: Units) -> None:
         """Called every game step before the units decide, with the visible enemy units and
         structures that detect burrowed or cloaked units, for tasks that care."""
+
+    def see_abilities(self, available: dict[int, set[AbilityId]]) -> None:
+        """Called every game step before the units decide, with the abilities each learner unit
+        (by tag) can use right now, e.g. whether a spell is off cooldown. Only for tasks that set
+        `wants_abilities`."""
 
     def baseline_policies(self) -> dict[str, Callable[[np.ndarray], int]]:
         """Hand-written policies (observation -> action) a trained model should be compared with."""

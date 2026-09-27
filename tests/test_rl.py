@@ -658,6 +658,35 @@ class DriverCrashTest(unittest.TestCase):
                 self.assertEqual((bot.client.left, self.driver.restarting), (leaves, leaves))
                 self.assertEqual(asked, [] if leaves else [("ready", None)])
 
+    def test_abilities_are_shared_only_with_tasks_that_want_them(self):
+        from types import SimpleNamespace
+
+        from sc2.ids.ability_id import AbilityId
+
+        class RecordingTask(MicroTask):
+            seen = None
+
+            def see_abilities(self, available):
+                self.seen = available
+
+        class StandInBot:
+            calls = 0
+
+            async def get_available_abilities(self, units):
+                self.calls += 1
+                return [[AbilityId.EFFECT_CORROSIVEBILE, AbilityId.MOVE], [AbilityId.MOVE]][:len(units)]
+
+        own = [SimpleNamespace(tag=7), SimpleNamespace(tag=8)]
+        for wants in (False, True):
+            with self.subTest(wants=wants):
+                task, bot = RecordingTask(), StandInBot()
+                task.wants_abilities = wants
+                self.driver.task = task
+                self.driver.loop.run_until_complete(self.driver._share_abilities(bot, own))
+                self.assertEqual(bot.calls, int(wants))
+                expected = {7: {AbilityId.EFFECT_CORROSIVEBILE, AbilityId.MOVE}, 8: {AbilityId.MOVE}}
+                self.assertEqual(task.seen, expected if wants else None)
+
     def test_a_planned_restart_is_not_reported_as_a_crash(self):
         self.start_crashing_game()
         self.driver.restarting = True

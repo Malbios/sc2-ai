@@ -216,6 +216,7 @@ class GameDriver:
             return
 
         self.task.see_detectors((bot.enemy_units | bot.enemy_structures).filter(lambda unit: unit.is_detector))
+        await self._share_abilities(bot, own)
         for unit in sorted(own, key=lambda u: u.tag):
             allies = own.tags_not_in({unit.tag})
             action = await self._ask(("decide", self.task.observe(unit, allies, enemies)))
@@ -223,6 +224,11 @@ class GameDriver:
                 self.episode = None
                 return
             self.task.apply(unit, int(action), allies, enemies)
+
+    async def _share_abilities(self, bot: BotAI, own: Units):
+        if self.task.wants_abilities:
+            abilities = await bot.get_available_abilities(own)
+            self.task.see_abilities({unit.tag: set(usable) for unit, usable in zip(own, abilities)})
 
     def _finish(self, outcome: str, game_loop: int, survivors: Units):
         episode = self.episode
