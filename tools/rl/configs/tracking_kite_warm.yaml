@@ -1,0 +1,59 @@
+# tracking_kite_mixed.yaml, but starting from the FreeKiteTask model that already kites (98% vs 2
+# chasing roaches) instead of from scratch. Its 21 inputs are TrackingKiteTask's first 21; the 4
+# movement inputs start with zero weight. A lower learning rate keeps the kite from being trained
+# away while the model learns to stop running from roaches that turn back.
+#
+#   python -m tools.rl.train --config tools/rl/configs/tracking_kite_warm.yaml --timesteps 1000000 --out models/tracking-kite-warm --warm-start models/free-kite-1v2-2m/checkpoints/rl_model_1501472_steps.zip
+
+map: MicroTraining410
+decision_interval: 3         # TrackingKiteTask's movement scale assumes 3
+
+learner:
+  race: Terran
+  task: tools.rl.examples.free_kite_task:TrackingKiteTask
+
+enemy:
+  mode: scripted             # each scenario's enemy_behavior says whether it chases or leashes
+  race: Terran
+
+scenarios:
+  - name: stalker_vs_2_chasing_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 2}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 3
+
+  - name: stalker_vs_2_leashed_roaches
+    learner: {Stalker: 1}
+    enemy: {Roach: 2}
+    enemy_behavior: leash
+    leash: [8, 14]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 3
+
+  - name: stalker_vs_1_chasing_roach
+    learner: {Stalker: 1}
+    enemy: {Roach: 1}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+  - name: stalker_vs_1_leashed_roach
+    learner: {Stalker: 1}
+    enemy: {Roach: 1}
+    enemy_behavior: leash
+    leash: [8, 14]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+ppo:
+  learning_rate: 0.0001
+  n_steps: 256
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  ent_coef: 0.01
+  net_arch: [128, 128]
