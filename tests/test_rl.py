@@ -91,6 +91,13 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(data=data), self.assertRaises(ValueError):
                 parse_config(data)
 
+    def test_upgrades(self):
+        self.assertEqual(parse_config(CONFIG).learner.upgrades, ())
+        learner = {**CONFIG["learner"], "upgrades": ["Burrow", "TUNNELINGCLAWS"]}
+        self.assertEqual(parse_config({**CONFIG, "learner": learner}).learner.upgrades, ("BURROW", "TUNNELINGCLAWS"))
+        with self.assertRaises(ValueError):
+            parse_config({**CONFIG, "learner": {**learner, "upgrades": ["Blink2"]}})
+
     def test_ppo_settings(self):
         self.assertEqual(parse_config(CONFIG).ppo.learning_rate, 3e-4)
         ppo = parse_config({**CONFIG, "ppo": {"learning_rate": 0.01, "net_arch": [128, 128]}}).ppo
@@ -408,6 +415,39 @@ class LeashOrderTest(unittest.TestCase):
         self.assertEqual((target.tag, returning), (1, False))
 
 
+class ResearchTest(unittest.TestCase):
+    def test_buildings_for_each_upgrade(self):
+        from sc2.ids.upgrade_id import UpgradeId
+
+        from tools.rl.research import research_buildings
+
+        self.assertEqual(research_buildings({UpgradeId.BURROW}), {UnitTypeId.HATCHERY})
+        # The Lair that Tunneling Claws needs also researches Burrow, so no Hatchery.
+        self.assertEqual(research_buildings({UpgradeId.BURROW, UpgradeId.TUNNELINGCLAWS}),
+                         {UnitTypeId.LAIR, UnitTypeId.ROACHWARREN})
+        self.assertEqual(research_buildings(set()), set())
+
+    def test_spots_are_buildable_far_from_the_center_and_apart(self):
+        from tools.rl.research import building_spots
+
+        grid = StandInGrid(30, 30, walls=[(x, y) for x in range(30) for y in range(30) if x < 5 or y < 5])
+        center = Point2((15, 15))
+        spots = building_spots(grid, center, 3, spacing=8)
+        self.assertEqual(len(spots), 3)
+        self.assertTrue(all(spot.x >= 5 and spot.y >= 5 for spot in spots))
+        self.assertTrue(all(a.distance_to(b) >= 8 for a in spots for b in spots if a != b))
+        self.assertEqual(spots[0], Point2((29, 29)))  # the farthest buildable cell comes first
+        with self.assertRaises(ValueError):
+            building_spots(grid, center, 20, spacing=8)
+
+    def test_nothing_to_research_is_done_at_once(self):
+        import asyncio
+
+        from tools.rl.research import UpgradeResearch
+
+        self.assertTrue(asyncio.run(UpgradeResearch(()).done(bot=None)))
+
+
 class LearnerBotTest(unittest.TestCase):
     def test_task_gets_the_map_when_the_game_starts(self):
         import asyncio
@@ -428,7 +468,8 @@ class LearnerBotTest(unittest.TestCase):
                 pass
 
         task = RecordingTask()
-        bot = LearnerBot(SimpleNamespace(config=SimpleNamespace(decision_interval=3), task=task))
+        config = SimpleNamespace(decision_interval=3, learner=SimpleNamespace(upgrades=()))
+        bot = LearnerBot(SimpleNamespace(config=config, task=task))
         bot.client, bot.game_info = StandInClient(), "the map"
         asyncio.run(bot.on_start())
         self.assertEqual(task.game_info, "the map")

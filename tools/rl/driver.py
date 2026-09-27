@@ -8,7 +8,8 @@ request. SC2 waits in between, because the game only advances after on_step retu
 stays on one thread, which python-sc2 requires (it installs a SIGINT handler when it starts SC2).
 
 One game serves many episodes. A reset kills every non-structure unit and spawns the next
-scenario, so the townhalls survive and the game never ends on its own.
+scenario, so the townhalls (and the learner's research buildings) survive and the game never ends
+on its own.
 
 Several learner units ("unit cycling"): each decision request is for one unit, and the game only
 advances once every living learner unit has decided. The team reward for that game step is paid
@@ -38,6 +39,7 @@ from tools.rl.config import TrainingConfig
 from tools.rl.enemies import EnemyBriefing, make_enemy_player
 from tools.rl.scenarios import Scenario, spawn_centers
 from tools.rl.kiting import KiteMeter
+from tools.rl.research import UpgradeResearch
 from tools.rl.task import FightSnapshot, MicroTask, life
 
 # Steps to wait for spawned units to show up before clearing and spawning again.
@@ -69,6 +71,7 @@ class LearnerBot(BotAI):
     def __init__(self, driver: "GameDriver"):
         super().__init__()
         self.driver = driver
+        self.research = UpgradeResearch(driver.config.learner.upgrades)
         driver.learner_bot = self
 
     async def on_start(self):
@@ -80,7 +83,8 @@ class LearnerBot(BotAI):
         self.driver.task.start_game(self.game_info)
 
     async def on_step(self, iteration: int):
-        await self.driver.learner_step(self)
+        if await self.research.done(self):
+            await self.driver.learner_step(self)
 
 
 async def _run_together(*coroutines):

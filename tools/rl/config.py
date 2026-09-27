@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 from sc2.data import Difficulty, Race
+from sc2.ids.upgrade_id import UpgradeId
 
 from tools.rl.scenarios import Scenario, parse_scenarios
 
@@ -17,6 +18,7 @@ ENEMY_MODES = ("builtin", "scripted", "frozen")
 class LearnerConfig:
     race: str
     task: str  # "module:Class" of a MicroTask
+    upgrades: tuple[str, ...] = ()  # UpgradeId names, researched once per game before the first fight
 
 
 @dataclass(frozen=True)
@@ -113,7 +115,11 @@ def parse_config(data: dict) -> TrainingConfig:
     config = TrainingConfig(
         map=data.get("map", "MicroTraining410"),
         decision_interval=int(data.get("decision_interval", 4)),
-        learner=LearnerConfig(race=_check_enum(learner.get("race", "Terran"), Race, "race"), task=learner["task"]),
+        learner=LearnerConfig(
+            race=_check_enum(learner.get("race", "Terran"), Race, "race"),
+            task=learner["task"],
+            upgrades=tuple(_check_enum(str(name).upper(), UpgradeId, "upgrade") for name in learner.get("upgrades") or ()),
+        ),
         enemy=enemy_config,
         scenarios=tuple(parse_scenarios(data.get("scenarios"))),
         self_play=self_play,
