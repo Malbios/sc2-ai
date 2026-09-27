@@ -72,6 +72,18 @@ class ScenarioTest(unittest.TestCase):
                 parse_scenarios([{**SCENARIOS[0], **bad}])
 
 
+    def test_enemy_support(self):
+        plain, supported = parse_scenarios([SCENARIOS[0], {**SCENARIOS[1], "enemy_support": {"overseer": 1}}])
+        self.assertEqual(plain.enemy_support, {})
+        self.assertEqual(supported.enemy_support, {UnitTypeId.OVERSEER: 1})
+        self.assertEqual(supported.enemy, {UnitTypeId.ZERGLING: 4})  # support isn't part of the fight
+        with self.assertRaises(ValueError):
+            supported.swapped()
+        for bad in ({"enemy_support": {"Overlordd": 1}}, {"enemy_support": {"Overseer": 0}}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                parse_scenarios([{**SCENARIOS[0], **bad}])
+
+
 class ConfigTest(unittest.TestCase):
     def test_defaults(self):
         config = parse_config(CONFIG)
@@ -435,7 +447,7 @@ class RoachKiteTaskTest(unittest.TestCase):
         from tools.rl.examples.roach_kite_task import BURROW, UNBURROW
 
         policies = self.task.baseline_policies()
-        self.assertEqual(set(policies), {"attack", "kite", "smart", "burrow"})
+        self.assertEqual(set(policies), {"attack", "kite", "smart", "burrow", "careful_burrow"})
 
         def burrow_rule(health, burrowed):
             self.roach.health, self.roach.is_burrowed = health, burrowed
@@ -447,6 +459,38 @@ class RoachKiteTaskTest(unittest.TestCase):
         self.assertEqual(burrow_rule(145 * 0.35, False)[0], BURROW)
         self.assertEqual(burrow_rule(145 * 0.6, True)[0], BURROW)  # stays burrowed while healing
         self.assertEqual(burrow_rule(145 * 0.75, True)[0], UNBURROW)
+
+    def test_detector_inputs(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.roach_kite_task import DETECTION_MARGIN, DETECTOR_PRESENT
+
+        self.assertEqual(self.observe()[DETECTOR_PRESENT:DETECTION_MARGIN + 1].tolist(), [0.0, 0.0])
+        near = SimpleNamespace(position=Point2((20.5, 25.5)), detect_range=11.0)  # 5 away: 6 inside
+        far = SimpleNamespace(position=Point2((40.5, 20.5)), detect_range=11.0)  # 20 away: 9 outside
+        self.task.see_detectors([far, near])
+        self.assertEqual([round(v, 3) for v in self.observe()[DETECTOR_PRESENT:DETECTION_MARGIN + 1].tolist()], [1.0, -0.6])
+        self.task.see_detectors([far])
+        self.assertAlmostEqual(float(self.observe()[DETECTION_MARGIN]), 0.9, places=5)
+
+    def test_careful_burrow_rule(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.roach_kite_task import BURROW, UNBURROW
+
+        policies = self.task.baseline_policies()
+        low = 145 * 0.3
+        self.roach.health = low
+        self.task.see_detectors([SimpleNamespace(position=Point2((20.5, 25.5)), detect_range=11.0)])
+        inside = self.observe()
+        self.assertEqual(policies["burrow"](inside), BURROW)
+        self.assertEqual(policies["careful_burrow"](inside), policies["smart"](inside))  # detected: fight or run instead
+        self.roach.is_burrowed = True
+        self.assertEqual(policies["careful_burrow"](self.observe()), UNBURROW)
+
+        self.roach.is_burrowed = False
+        self.task.see_detectors([SimpleNamespace(position=Point2((40.5, 20.5)), detect_range=11.0)])
+        self.assertEqual(policies["careful_burrow"](self.observe()), BURROW)  # out of detection: safe to burrow
 
 
 class LeashOrderTest(unittest.TestCase):

@@ -48,6 +48,10 @@ class MicroTask:
     def start_episode(self) -> None:
         """Called when a fight starts, for tasks that keep state across decisions."""
 
+    def see_detectors(self, detectors: Units) -> None:
+        """Called every game step before the units decide, with the visible enemy units and
+        structures that detect burrowed or cloaked units, for tasks that care."""
+
     def baseline_policies(self) -> dict[str, Callable[[np.ndarray], int]]:
         """Hand-written policies (observation -> action) a trained model should be compared with."""
         return {}

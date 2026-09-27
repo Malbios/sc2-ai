@@ -153,6 +153,7 @@ class GameDriver:
             await bot.client.debug_create_unit(
                 [(type_id, count, episode.learner_center, me) for type_id, count in episode.scenario.learner.items()]
                 + [(type_id, count, episode.enemy_center, them) for type_id, count in episode.scenario.enemy.items()]
+                + [(type_id, count, episode.enemy_center, them) for type_id, count in episode.scenario.enemy_support.items()]
             )
             episode.phase, episode.wait_steps = "wait", 0
             return
@@ -203,6 +204,7 @@ class GameDriver:
             self._finish(outcome, bot.state.game_loop, own)
             return
 
+        self.task.see_detectors((bot.enemy_units | bot.enemy_structures).filter(lambda unit: unit.is_detector))
         for unit in sorted(own, key=lambda u: u.tag):
             allies = own.tags_not_in({unit.tag})
             action = await self._ask(("decide", self.task.observe(unit, allies, enemies)))

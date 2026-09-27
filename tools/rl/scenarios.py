@@ -3,7 +3,7 @@ scenario is picked."""
 
 import math
 import random
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from sc2.ids.unit_typeid import UnitTypeId
 
@@ -22,9 +22,14 @@ class Scenario:
     # farther than a leash distance (drawn from `leash` per fight) from where it spawned.
     enemy_behavior: str = "chase"
     leash: tuple[float, float] | None = None
+    # Units spawned with the enemy that the fight doesn't need dead, e.g. an Overseer detecting
+    # for roaches that can't shoot it.
+    enemy_support: dict[UnitTypeId, int] = field(default_factory=dict)
 
     def swapped(self) -> "Scenario":
         """The same fight from the other side, for training the enemy's model in self-play."""
+        if self.enemy_support:
+            raise ValueError(f"scenario '{self.name}': self-play can't swap sides with enemy_support")
         return replace(self, learner=self.enemy, enemy=self.learner)
 
 
@@ -58,6 +63,8 @@ def parse_scenarios(items: list[dict]) -> list[Scenario]:
             time_limit=float(item.get("time_limit", 45.0)),
             enemy_behavior=item.get("enemy_behavior", "chase"),
             leash=tuple(float(value) for value in item["leash"]) if "leash" in item else None,
+            enemy_support=_parse_units(item["enemy_support"], f"scenario '{name}' enemy_support")
+            if "enemy_support" in item else {},
         )
         if scenario.weight <= 0 or not 0 < low <= high:
             raise ValueError(f"scenario '{name}': weight must be positive and 0 < distance low <= high")

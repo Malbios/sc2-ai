@@ -20,10 +20,12 @@ NON_FIGHTERS = {
     UnitTypeId.SCV, UnitTypeId.PROBE, UnitTypeId.DRONE, UnitTypeId.MULE,
     UnitTypeId.LARVA, UnitTypeId.EGG, UnitTypeId.OVERLORD,
 }
+# Units that stay with their army without fighting (see Scenario.enemy_support).
+SUPPORT = {UnitTypeId.OVERSEER}
 
 
 def fighters(units: Units) -> Units:
-    return units.filter(lambda unit: unit.type_id not in NON_FIGHTERS)
+    return units.filter(lambda unit: unit.type_id not in NON_FIGHTERS | SUPPORT)
 
 
 @dataclass(frozen=True)
@@ -54,7 +56,8 @@ def leash_order(unit: Unit, targets: Units, briefing: EnemyBriefing, returning: 
 
 class ScriptedEnemyBot(BotAI):
     """Every fighter attacks the closest enemy fighter. Predictable on purpose. With a leash
-    briefing, it gives up and walks home past the leash distance instead of chasing forever."""
+    briefing, it gives up and walks home past the leash distance instead of chasing forever.
+    Support units (an Overseer) stay at the center of the fighters."""
 
     def __init__(self, decision_interval: int, briefing: Callable[[], EnemyBriefing | None] = lambda: None):
         super().__init__()
@@ -68,11 +71,15 @@ class ScriptedEnemyBot(BotAI):
         self.client.game_step = self.decision_interval
 
     async def on_step(self, iteration: int):
+        own = fighters(self.units)
+        if own:
+            for unit in self.units.of_type(SUPPORT):
+                unit.move(own.center)
         targets = fighters(self.enemy_units).visible  # a burrowed unit is listed but can't be attacked
         if not targets:
             return
         briefing = self.briefing()
-        for unit in fighters(self.units):
+        for unit in own:
             if briefing is None or briefing.behavior != "leash":
                 unit.attack(targets.closest_to(unit))
                 continue
