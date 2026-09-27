@@ -388,6 +388,67 @@ class TrackingKiteTaskTest(unittest.TestCase):
         self.assertEqual(self.task.situation(observation), "weapon cooling, open ground")
 
 
+class StandInRoach(StandInUnit):
+    def __init__(self, *args, burrowed=False, **kwargs):
+        super().__init__(*args, shield=0, shield_max=0, **kwargs)
+        self.is_burrowed = burrowed
+
+    def __call__(self, ability):
+        self.commands.append(("ability", ability))
+
+
+class RoachKiteTaskTest(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.roach_kite_task import RoachKiteTask
+
+        self.task = RoachKiteTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.roach = StandInRoach(1, 20.5, 20.5, cooldown=15, health=145, health_max=145)
+        self.enemy = StandInRoach(2, 20.5, 16.5, health=145, health_max=145)
+
+    def observe(self):
+        return self.task.observe(self.roach, [], [self.enemy])
+
+    def test_burrowed_input(self):
+        from tools.rl.examples.roach_kite_task import BURROWED
+
+        self.assertEqual(self.observe().shape, self.task.observation_space.shape)
+        self.assertEqual(self.observe()[BURROWED], 0.0)
+        self.roach.is_burrowed = True
+        self.assertEqual(self.observe()[BURROWED], 1.0)
+        self.assertEqual(self.observe()[2], 0.0)  # no shield
+
+    def test_burrow_actions(self):
+        from sc2.ids.ability_id import AbilityId
+
+        from tools.rl.examples.roach_kite_task import BURROW, UNBURROW
+
+        self.task.apply(self.roach, BURROW, [], [self.enemy])
+        self.task.apply(self.roach, UNBURROW, [], [self.enemy])
+        self.task.apply(self.roach, 0, [], [self.enemy])
+        self.assertEqual(self.roach.commands, [("ability", AbilityId.BURROWDOWN_ROACH),
+                                               ("ability", AbilityId.BURROWUP_ROACH), ("attack", self.enemy)])
+
+    def test_burrow_rule(self):
+        from tools.rl.examples.roach_kite_task import BURROW, UNBURROW
+
+        policies = self.task.baseline_policies()
+        self.assertEqual(set(policies), {"attack", "kite", "smart", "burrow"})
+
+        def burrow_rule(health, burrowed):
+            self.roach.health, self.roach.is_burrowed = health, burrowed
+            observation = self.observe()
+            return policies["burrow"](observation), policies["smart"](observation)
+
+        burrow, smart = burrow_rule(145 * 0.5, False)
+        self.assertEqual(burrow, smart)  # healthy enough: plays like the smart rule
+        self.assertEqual(burrow_rule(145 * 0.35, False)[0], BURROW)
+        self.assertEqual(burrow_rule(145 * 0.6, True)[0], BURROW)  # stays burrowed while healing
+        self.assertEqual(burrow_rule(145 * 0.75, True)[0], UNBURROW)
+
+
 class LeashOrderTest(unittest.TestCase):
     """A roach spawned at (20, 20) with a leash of 8, against a stalker it may chase."""
 
