@@ -341,6 +341,14 @@ What the ravager baselines showed (bile, 2026-09). Bile lands about 1.6 s after 
 - The scripted dodge needs a reaction time (drawn per fight): a bile is visible about 1.4 s before
   it lands, so an instant dodger escapes every bile. It also has to keep units from walking into
   a bile, not only step out of one.
+- **Trained from scratch on 1 vs 2 only, the ravager plateaued.** 2M decisions against chasing,
+  dodging and leashing roaches (weights 2:2:1, gamma 0.999). Damage dealt against chasers stayed
+  at 41 to 48% from 100k decisions to 2M, and no checkpoint (1M to final, 200 fights each) beat the
+  best rule anywhere: chasing 0 to 1% wins (rule 4%), dodging 0 to 6% (rule 55%), leashing 64 to
+  81% with 52 to 76% life lost (the no-bile kite rule: 100% with 23%). Likely cause: it almost
+  never won the hard fights, so the big reward (life left on a win) never showed up; only the
+  small reward for firing often, which doesn't care about surviving. A task needs fights the
+  model can win early, like the stalker's 1-roach fights.
 
 Tooling pitfalls:
 
