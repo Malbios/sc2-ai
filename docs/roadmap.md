@@ -16,8 +16,12 @@ The current goal is to find out whether RL micro beats scripted micro. The bot c
       see how close detection is
 - [x] Start a fresh SC2 game before SC2's 6.5-game-hour limit
 - [ ] Enemies that move while fighting: a scripted enemy that kites
-- [ ] Enemy unit types the bot will really face (marines, marauders, zealots, stalkers,
-      zerglings, roaches), not only roaches
+- [ ] One model per own unit type that fights any enemy type (not one model per matchup): inputs
+      that describe each seen enemy by its properties (its range and speed compared with mine,
+      its damage against me, whether it can hit me), more than the 2 closest enemies, and enemy
+      types drawn at random per fight. First test after the ravager run: add marines as a second
+      enemy type and check whether one model handles both. Then the types the bot will really
+      face (marines, marauders, zealots, stalkers, zerglings, roaches).
 - [ ] Check each new task against the built-in AI too, as an enemy the model never trained on
 
 ## 2. Models, one at a time
