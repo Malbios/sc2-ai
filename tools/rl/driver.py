@@ -159,7 +159,8 @@ class GameDriver:
             episode.learner_center, episode.enemy_center = Point2(learner_center), Point2(enemy_center)
             scenario = episode.scenario
             leash = self.rng.uniform(*scenario.leash) if scenario.leash else 0.0
-            self.enemy_briefing = EnemyBriefing(scenario.enemy_behavior, episode.enemy_center, leash)
+            reaction = self.rng.uniform(*scenario.bile_dodge_reaction) if scenario.bile_dodge_reaction else None
+            self.enemy_briefing = EnemyBriefing(scenario.enemy_behavior, episode.enemy_center, leash, reaction)
             me, them = bot.player_id, 3 - bot.player_id
             await bot.client.debug_create_unit(
                 [(type_id, count, episode.learner_center, me) for type_id, count in episode.scenario.learner.items()]

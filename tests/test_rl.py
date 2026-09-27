@@ -84,6 +84,31 @@ class ScenarioTest(unittest.TestCase):
                 parse_scenarios([{**SCENARIOS[0], **bad}])
 
 
+    def test_bile_dodge_reaction(self):
+        plain, dodging = parse_scenarios([SCENARIOS[0], {**SCENARIOS[1], "bile_dodge_reaction": [0.3, 0.9]}])
+        self.assertIsNone(plain.bile_dodge_reaction)
+        self.assertEqual(dodging.bile_dodge_reaction, (0.3, 0.9))
+        for bad in ([0.9, 0.3], [-1, 0.5], [0.5]):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                parse_scenarios([{**SCENARIOS[0], "bile_dodge_reaction": bad}])
+
+
+class DodgePointTest(unittest.TestCase):
+    def test_steps_straight_out_of_a_bile_that_would_hit(self):
+        from tools.rl.enemies import DODGE_MARGIN, dodge_point
+
+        bile = (Point2((10, 10)), 0.5)
+        clear = 1.5 + 2 * DODGE_MARGIN
+        escape = dodge_point(Point2((10.5, 10)), 1.0, [bile])  # 0.5 east of the center, inside 0.5 + 1
+        self.assertEqual(escape, Point2((10 + clear, 10)))
+        edge = dodge_point(Point2((10, 11.5 + DODGE_MARGIN / 2)), 1.0, [bile])  # just outside: about to walk in
+        self.assertEqual(edge, Point2((10, 10 + clear)))
+        self.assertIsNone(dodge_point(Point2((13, 10)), 1.0, [bile]))  # well clear
+        self.assertIsNone(dodge_point(Point2((10, 10)), 1.0, []))
+        centered = dodge_point(Point2((10, 10)), 1.0, [bile])
+        self.assertAlmostEqual(centered.distance_to(Point2((10, 10))), clear)
+
+
 class ConfigTest(unittest.TestCase):
     def test_defaults(self):
         config = parse_config(CONFIG)

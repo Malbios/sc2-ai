@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 from sc2.bot_ai import BotAI
 from sc2.data import Difficulty, Race
+from sc2.ids.effect_id import EffectId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.player import Bot, Computer
 from sc2.position import Point2
@@ -35,10 +36,25 @@ class EnemyBriefing:
     behavior: str  # "chase" or "leash", see Scenario.enemy_behavior
     home: Point2  # where the enemy group spawned
     leash: float
+    bile_dodge_reaction: float | None = None  # seconds before stepping out of a bile; None: never
 
 
 # A leashed unit walking home fights again once it is this close to home.
 HOME_RADIUS = 1.5
+# A dodging unit keeps this far outside a bile's edge, so it also doesn't walk into one.
+DODGE_MARGIN = 0.5
+
+
+def dodge_point(position: Point2, radius: float, biles: list[tuple[Point2, float]]) -> Point2 | None:
+    """Where a unit at `position` steps to stay clear of the first of `biles` (center, radius) it
+    is in or next to: straight away from its center. None if it is clear of all of them."""
+    for center, bile_radius in biles:
+        reach = bile_radius + radius
+        offset = position - center
+        if offset.length < reach + DODGE_MARGIN:
+            away = offset.normalized if offset.length > 0.01 else Point2((1.0, 0.0))
+            return center + away * (reach + 2 * DODGE_MARGIN)
+    return None
 
 
 def leash_order(unit: Unit, targets: Units, briefing: EnemyBriefing, returning: bool) -> tuple[Unit | Point2, bool]:
@@ -57,13 +73,23 @@ def leash_order(unit: Unit, targets: Units, briefing: EnemyBriefing, returning: 
 class ScriptedEnemyBot(BotAI):
     """Every fighter attacks the closest enemy fighter. Predictable on purpose. With a leash
     briefing, it gives up and walks home past the leash distance instead of chasing forever.
-    Support units (an Overseer) stay at the center of the fighters."""
+    With a bile dodge reaction, a unit steps out of a ravager's bile once it has seen the bile for
+    that long. Support units (an Overseer) stay at the center of the fighters."""
 
     def __init__(self, decision_interval: int, briefing: Callable[[], EnemyBriefing | None] = lambda: None):
         super().__init__()
         self.decision_interval = decision_interval
         self.briefing = briefing
         self.returning: set[int] = set()
+        self.biles_seen: dict[Point2, int] = {}  # bile center -> game loop it was first seen
+
+    def _noticed_biles(self, reaction: float) -> list[tuple[Point2, float]]:
+        loop = self.state.game_loop
+        biles = {Point2(position): effect.radius for effect in self.state.effects
+                 if effect.id == EffectId.RAVAGERCORROSIVEBILECP for position in effect.positions}
+        self.biles_seen = {center: self.biles_seen.get(center, loop) for center in biles}
+        return [(center, radius) for center, radius in biles.items()
+                if loop - self.biles_seen[center] >= reaction * 22.4]
 
     async def on_start(self):
         # No debug_show_map here: the learner already turned on full vision for the whole game,
@@ -79,7 +105,13 @@ class ScriptedEnemyBot(BotAI):
         if not targets:
             return
         briefing = self.briefing()
+        dodging = briefing is not None and briefing.bile_dodge_reaction is not None
+        biles = self._noticed_biles(briefing.bile_dodge_reaction) if dodging else []
         for unit in own:
+            escape = dodge_point(unit.position, unit.radius, biles)
+            if escape is not None:
+                unit.move(escape)
+                continue
             if briefing is None or briefing.behavior != "leash":
                 unit.attack(targets.closest_to(unit))
                 continue

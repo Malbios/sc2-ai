@@ -25,6 +25,9 @@ class Scenario:
     # Units spawned with the enemy that the fight doesn't need dead, e.g. an Overseer detecting
     # for roaches that can't shoot it.
     enemy_support: dict[UnitTypeId, int] = field(default_factory=dict)
+    # The scripted enemy steps out of a ravager's bile after seeing it for this long (seconds,
+    # drawn per fight from the range); None: it never dodges.
+    bile_dodge_reaction: tuple[float, float] | None = None
 
     def swapped(self) -> "Scenario":
         """The same fight from the other side, for training the enemy's model in self-play."""
@@ -65,7 +68,12 @@ def parse_scenarios(items: list[dict]) -> list[Scenario]:
             leash=tuple(float(value) for value in item["leash"]) if "leash" in item else None,
             enemy_support=_parse_units(item["enemy_support"], f"scenario '{name}' enemy_support")
             if "enemy_support" in item else {},
+            bile_dodge_reaction=tuple(float(value) for value in item["bile_dodge_reaction"])
+            if "bile_dodge_reaction" in item else None,
         )
+        reaction = scenario.bile_dodge_reaction
+        if reaction is not None and not (len(reaction) == 2 and 0 <= reaction[0] <= reaction[1]):
+            raise ValueError(f"scenario '{name}': 'bile_dodge_reaction' needs [low, high] with 0 <= low <= high")
         if scenario.weight <= 0 or not 0 < low <= high:
             raise ValueError(f"scenario '{name}': weight must be positive and 0 < distance low <= high")
         if scenario.enemy_behavior not in ENEMY_BEHAVIORS:
