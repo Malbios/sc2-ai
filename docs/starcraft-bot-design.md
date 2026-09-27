@@ -349,6 +349,15 @@ What the ravager baselines showed (bile, 2026-09). Bile lands about 1.6 s after 
   never won the hard fights, so the big reward (life left on a win) never showed up; only the
   small reward for firing often, which doesn't care about surviving. A task needs fights the
   model can win early, like the stalker's 1-roach fights.
+- **Winnable 1 vs 1 fights in the mix didn't fix it.** Every rule wins 1 ravager vs 1 roach, but
+  life lost differs (attack 86%; against chasers, dodgers, leashers: smart 56/56/10%, the lead rule
+  44/22/19%). With these mixed in (weights 1 each next to 1 vs 2 at 2:2:1), the model won 95 to
+  100% of its 1 vs 1 training fights from 200k decisions on, but the 500k checkpoint dealt 47% to
+  2 chasers and 52% to 2 dodgers (3% wins), no better than before, so the run was stopped there
+  as planned. At 600k it lost 62/52/27% of its life in 1 vs 1: kiting a bit worse than the smart
+  rule and no sign of aimed bile. Winning alone wasn't enough; the bile skill itself didn't get
+  learned. Likely reasons: bile is ready only every 7 s, 8 of 18 actions are biles and most of
+  them miss, and a hit lands 12 decisions after the cast, so good aim is rare and hard to credit.
 
 Tooling pitfalls:
 

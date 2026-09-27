@@ -31,7 +31,8 @@ chasing, leashing and built-in AI enemies. It counts as a win for RL only if it 
 
 - [ ] Ravager (next): bile aiming against moving enemies. Baselines measured; the bar per enemy is
       the best rule (see the design doc's ravager table). A first run on 1 vs 2 roaches only
-      plateaued below every rule. Next: the same with winnable 1 vs 1 fights mixed in.
+      plateaued below every rule; with winnable 1 vs 1 fights mixed in it still didn't learn to
+      aim bile (stopped at 500k).
 - Roach, parked: the burrow rule already wins everything without detection, and nothing wins
   with an Overseer, so there's no room to beat it (see the design doc's roach lessons)
 - [ ] Hydralisk: focus fire and kiting in groups (needs the group items below)
