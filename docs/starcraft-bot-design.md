@@ -176,6 +176,9 @@ Training lives outside the bot:
 - Learning method: PPO from Stable-Baselines3, with environments in the Gymnasium format.
 - Reward is set per task (damage traded, a bonus for firing, a bonus for winning); see the lessons
   below for what each one taught the model.
+- Match the discount factor (gamma) to the fight length: at 0.99 a reward half a minute away
+  counts almost nothing, so a reward paid only at the end of the fight barely counts. Long fights
+  need 0.999.
 - **Randomized scenarios.** Each training round samples a scenario (unit types, counts, uneven
   fights, start positions) from a weighted list. The weights decide whether training goes step by
   step (1v1 first) or mixed from the start; that is a setting to try, not a fixed choice. Easy
@@ -193,7 +196,8 @@ Training lives outside the bot:
 
 What the first milestone taught us (stalker kiting, 2026-09). 1 stalker vs 1 roach: learned. 1 vs 2
 roaches: a model with more inputs and actions beat both the kite rule (39%) and the smarter
-hand-written rule (82%), winning 98%.
+hand-written rule (82%), winning 98%, and later 100% against roaches that chase and 100% with 3%
+life lost against roaches that give up.
 
 Why sharknice's setup (SharkyRLMatrixTraining) learns kiting, and ours first didn't. Two causes,
 each confirmed by changing only that one thing (his task on his map, 1 stalker vs 1 roach). His task
