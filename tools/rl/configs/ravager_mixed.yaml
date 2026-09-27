@@ -1,0 +1,50 @@
+# 1 ravager against 2 roaches that chase, step out of bile, or leash. The best rule differs per
+# enemy (bile with a straight-line lead against chasers and dodgers, kiting without bile against
+# leashers), so a model has room to beat all of them by choosing when and where to bile.
+#
+#   python -m tools.rl.train --config tools/rl/configs/ravager_mixed.yaml --timesteps 2000000 --out models/ravager-mixed
+
+map: MicroTraining410
+decision_interval: 3         # RavagerTask's movement scale and bile lead assume 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.ravager_task:RavagerTask
+
+enemy:
+  mode: scripted
+  race: Zerg
+
+scenarios:
+  - name: ravager_1v2_chase
+    learner: {Ravager: 1}
+    enemy: {Roach: 2}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 2
+
+  - name: ravager_1v2_dodge
+    learner: {Ravager: 1}
+    enemy: {Roach: 2}
+    bile_dodge_reaction: [0.3, 0.9]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 2
+
+  - name: ravager_1v2_leash
+    learner: {Ravager: 1}
+    enemy: {Roach: 2}
+    enemy_behavior: leash
+    leash: [8, 14]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
