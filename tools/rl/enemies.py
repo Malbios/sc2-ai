@@ -68,7 +68,7 @@ class ScriptedEnemyBot(BotAI):
         self.client.game_step = self.decision_interval
 
     async def on_step(self, iteration: int):
-        targets = fighters(self.enemy_units)
+        targets = fighters(self.enemy_units).visible  # a burrowed unit is listed but can't be attacked
         if not targets:
             return
         briefing = self.briefing()
