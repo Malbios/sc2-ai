@@ -11,16 +11,18 @@ Output folder: final.zip (the model), checkpoints/, logs/ (progress.csv) and a c
 """
 
 import argparse
+import math
 import shutil
 from collections import deque
 from functools import partial
 from pathlib import Path
 
 import numpy as np
+import torch
+from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
 from stable_baselines3.common.logger import configure
-from gymnasium import spaces
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecMonitor
 
 from tools.rl.config import TrainingConfig, load_class, load_config, self_play_side
@@ -39,7 +41,22 @@ def model_class(config: TrainingConfig) -> type[PPO]:
 
 
 def new_model(config: TrainingConfig, env) -> PPO:
-    return model_class(config)("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs())
+    """A fresh model. If the task favors an action, it starts out picking that one with the task's
+    favored_action_probability (see MicroTask.favored_action)."""
+    model = model_class(config)("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs())
+    task = load_class(config.learner.task)
+    if task.favored_action is not None:
+        bias = favored_action_bias(task.favored_action_probability, env.action_space.n)
+        with torch.no_grad():
+            model.policy.action_net.bias[task.favored_action] += bias
+    return model
+
+
+def favored_action_bias(probability: float, actions: int) -> float:
+    """The output bias that makes one of `actions` equally likely actions have `probability`.
+    A new SB3 policy's output weights are close to zero, so its output bias alone sets its first
+    choices."""
+    return math.log(probability * (actions - 1) / (1 - probability))
 
 
 def load_model(path: str | Path, config: TrainingConfig, env) -> PPO:

@@ -38,6 +38,10 @@ class MicroTask:
     # Group tasks: all units decide together, each in its own slot and training stream (see
     # SC2GroupEnv). The number of slots caps the learner units per fight. 0: one unit at a time.
     group_slots = 0
+    # A new model picks this action with this probability at first (the others equally), so that
+    # exploring starts from a sensible default instead of from random picks. None: all equal.
+    favored_action: int | None = None
+    favored_action_probability = 0.85
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """What the model sees when deciding for `unit`. `allies` excludes the unit itself;

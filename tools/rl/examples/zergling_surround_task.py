@@ -48,6 +48,9 @@ FLANK_RADIUS = 3.0
 class ZerglingSurroundTask(FreeKiteTask):
     observation_space = spaces.Box(-np.inf, np.inf, shape=(INPUTS,), dtype=np.float32)
     group_slots = 16
+    # A melee attack only pays after many decisions of running in, which random first picks
+    # almost never allow; so new models start out mostly attacking.
+    favored_action = ATTACK_CLOSEST
     damage_reward_scale = 100.0
     win_reward_scale = 100.0
 

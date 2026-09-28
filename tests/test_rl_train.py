@@ -69,6 +69,44 @@ class ModelClassTest(unittest.TestCase):
         self.assertIs(model_class(config("tools.rl.examples.ravager_task:RavagerTask")), PPO)
 
 
+@unittest.skipUnless(HAS_SB3, "needs Stable-Baselines3")
+class FavoredActionTest(unittest.TestCase):
+    def test_bias_gives_the_probability(self):
+        import math
+
+        from tools.rl.train import favored_action_bias
+
+        for probability, actions in ((0.85, 10), (0.5, 2), (0.3, 4)):
+            weight = math.exp(favored_action_bias(probability, actions))
+            self.assertAlmostEqual(weight / (weight + actions - 1), probability)
+
+    def test_new_model_starts_with_the_favored_action(self):
+        from types import SimpleNamespace
+
+        import gymnasium as gym
+        import torch
+        from stable_baselines3.common.vec_env import DummyVecEnv
+
+        from tools.rl.config import PPOConfig
+        from tools.rl.examples.free_kite_task import ATTACK_CLOSEST
+        from tools.rl.examples.zergling_surround_task import ZerglingSurroundTask
+        from tools.rl.train import new_model
+
+        task = ZerglingSurroundTask()
+
+        class StandInEnv(gym.Env):
+            observation_space, action_space = task.observation_space, task.action_space
+
+        config = SimpleNamespace(learner=SimpleNamespace(task="tools.rl.examples.zergling_surround_task:ZerglingSurroundTask"),
+                                 ppo=PPOConfig(n_steps=64, batch_size=64))
+        model = new_model(config, DummyVecEnv([StandInEnv]))
+        observations = torch.as_tensor(np.random.default_rng(0).normal(size=(200, task.observation_space.shape[0])),
+                                       dtype=torch.float32)
+        with torch.no_grad():
+            chosen = model.policy.get_distribution(observations).distribution.probs[:, ATTACK_CLOSEST]
+        self.assertAlmostEqual(float(chosen.mean()), 0.85, delta=0.02)
+
+
 class StandInGames:
     """Two group envs with 3 slots of 2 inputs, as a VecEnv would return them."""
 
