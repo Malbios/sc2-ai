@@ -50,7 +50,8 @@ Several learner units already share one model in a fight, each deciding for itse
 - [ ] A reward that tells which unit did well; today every unit gets the team's reward
 - [x] Faster training when a fight has many units: group tasks decide for all units at once, one
       training stream per unit (`MicroTask.group_slots`)
-- [ ] Zergling surround against marines (now): baselines measured, bar per fight is attack-move
+- [ ] Zergling surround against marines (now): baselines measured, bar per fight is attack-move.
+      A first run from scratch never learned to engage (stopped at 6.85M slot decisions).
 - [ ] Then possibly banelings, mutalisks
 
 ## 4. The bot itself

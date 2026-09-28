@@ -402,6 +402,13 @@ every zergling decides for itself (group task). Rules, 50 to 100 fights each:
 - **A flank rule is easy to get wrong.** Running around to the marines' far side before attacking
   matched attack-move against standing marines but lost 83 to 100% against kiting ones: marines
   that keep stepping back are never "passed", so the zerglings circle while getting shot.
+- **Trained from scratch, the zerglings never learned to engage.** 8v5, 8v6, 12v8 and 12v9
+  against both marine behaviors, one stream per zergling, stopped at 6.85M slot decisions. The
+  2.5M checkpoint lost all 800 fights (100 per fight) and dealt 1 to 12% of the marines' life,
+  even at 8v5, which attack-move always wins. A melee attack only pays after about 18 decisions in
+  a row of running in, and a random start cancels it with a move almost every time, so damage (and
+  reward) almost never happened. The budget also looked bigger than it was: slot decisions count
+  all 16 slots, so 2.5M were only about 1,000 fights (the ravager saw about 28,000 in 2M).
 
 Tooling pitfalls:
 
