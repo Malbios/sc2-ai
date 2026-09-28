@@ -1,0 +1,84 @@
+# zergling_surround.yaml, second try. The first run never learned to engage: a model that starts
+# out picking at random cancels the zerglings' attacks with moves before they reach the marines.
+# Now new models start out mostly attacking (ZerglingSurroundTask.favored_action), and the
+# zerglings decide on every 3rd game step only (every 9 game loops), so fewer picks can cancel an
+# attack and the same budget covers 3 times more fights. The marines still react every 3 loops,
+# as in the calibration. Enemy movement inputs are about 3 times larger than at decide_every 1,
+# since they measure movement since the last decision.
+#
+#   python -m tools.rl.train --config tools/rl/configs/zergling_surround_attack_start.yaml --timesteps 10000000 --out models/lings-attack-start
+
+map: MicroTraining410
+decision_interval: 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.zergling_surround_task:ZerglingSurroundTask
+  upgrades: [ZerglingMovementSpeed]
+  decide_every: 3
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: lings_8v5_chase
+    learner: {Zergling: 8}
+    enemy: {Marine: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v5_kite
+    learner: {Zergling: 8}
+    enemy: {Marine: 5}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v6_chase
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v6_kite
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v8_chase
+    learner: {Zergling: 12}
+    enemy: {Marine: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v8_kite
+    learner: {Zergling: 12}
+    enemy: {Marine: 8}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_chase
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_kite
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
