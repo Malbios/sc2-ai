@@ -71,6 +71,7 @@ class Episode:
     last: FightSnapshot | None = None
     start_loop: int = 0
     wait_steps: int = 0
+    fight_steps: int = 0
 
 
 class LearnerBot(BotAI):
@@ -224,12 +225,19 @@ class GameDriver:
             self._finish(outcome, bot.state.game_loop, own)
             return
 
+        if not self._decides_now(episode):
+            return
         self.task.see_detectors((bot.enemy_units | bot.enemy_structures).filter(lambda unit: unit.is_detector))
         await self._share_abilities(bot, own)
         if self.task.group_slots:
             await self._decide_as_group(own, enemies)
         else:
             await self._decide_one_by_one(own, enemies)
+
+    def _decides_now(self, episode: Episode) -> bool:
+        """Counts the fight's steps; true on its first step and every learner.decide_every-th after."""
+        episode.fight_steps += 1
+        return (episode.fight_steps - 1) % self.config.learner.decide_every == 0
 
     async def _decide_one_by_one(self, own: Units, enemies: Units):
         for unit in sorted(own, key=lambda u: u.tag):

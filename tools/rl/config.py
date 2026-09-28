@@ -19,6 +19,9 @@ class LearnerConfig:
     race: str
     task: str  # "module:Class" of a MicroTask
     upgrades: tuple[str, ...] = ()  # UpgradeId names, researched once per game before the first fight
+    # The units decide on every k-th game step of a fight and keep their orders in between; the
+    # enemy still reacts every step.
+    decide_every: int = 1
 
 
 @dataclass(frozen=True)
@@ -119,6 +122,7 @@ def parse_config(data: dict) -> TrainingConfig:
             race=_check_enum(learner.get("race", "Terran"), Race, "race"),
             task=learner["task"],
             upgrades=tuple(_check_enum(str(name).upper(), UpgradeId, "upgrade") for name in learner.get("upgrades") or ()),
+            decide_every=int(learner.get("decide_every", 1)),
         ),
         enemy=enemy_config,
         scenarios=tuple(parse_scenarios(data.get("scenarios"))),
@@ -127,6 +131,8 @@ def parse_config(data: dict) -> TrainingConfig:
     )
     if config.decision_interval < 1:
         raise ValueError("'decision_interval' must be at least 1")
+    if config.learner.decide_every < 1:
+        raise ValueError("'learner.decide_every' must be at least 1")
     return config
 
 

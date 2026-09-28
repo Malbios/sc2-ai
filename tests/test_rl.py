@@ -783,6 +783,28 @@ class ZerglingSurroundTaskTest(unittest.TestCase):
         self.assertLessEqual(largest, self.task.group_slots)
 
 
+class DecideEveryTest(unittest.TestCase):
+    def test_decides_on_the_first_and_every_kth_step(self):
+        from types import SimpleNamespace
+
+        from tools.rl.driver import Episode, GameDriver
+        from tools.rl.examples.cooldown_kite_task import CooldownKiteTask
+
+        config = SimpleNamespace(decision_interval=3, learner=SimpleNamespace(decide_every=3))
+        driver = GameDriver(config, CooldownKiteTask(), random.Random())
+        self.addCleanup(driver.loop.close)
+        episode = Episode(scenario=None)
+        self.assertEqual([driver._decides_now(episode) for _ in range(7)],
+                         [True, False, False, True, False, False, True])
+
+    def test_config(self):
+        base = {"learner": {"task": "m:C"}, "scenarios": [{"name": "s", "learner": {"Zergling": 1}, "enemy": {"Marine": 1}}]}
+        self.assertEqual(parse_config(base).learner.decide_every, 1)
+        self.assertEqual(parse_config({**base, "learner": {"task": "m:C", "decide_every": 3}}).learner.decide_every, 3)
+        with self.assertRaisesRegex(ValueError, "decide_every"):
+            parse_config({**base, "learner": {"task": "m:C", "decide_every": 0}})
+
+
 class KiteOrderTest(unittest.TestCase):
     """A marine at (20, 20) against zerglings to its east."""
 
