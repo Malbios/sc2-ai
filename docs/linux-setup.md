@@ -84,6 +84,8 @@ python -m tools.rl.evaluate_many --config tools/rl/configs/stalker_vs_roaches.ya
   training, not during.
 
 - `--timesteps` counts decisions, not fights. A fight is roughly 50 to 300 decisions per unit.
+  In group tasks (e.g. ZerglingSurroundTask) every slot counts, including slots whose unit is
+  dead or was never spawned, so 16 slots make 16 decisions per game step.
 - `--n-envs` sets how many games train in parallel (default 4). Measured on 8 cores: 4 games with a
   scripted enemy (two SC2 processes each) use all cores and make about 160 decisions per second.
 - `--resume models/stalker/final.zip` continues training an existing model, with the config's

@@ -1,0 +1,66 @@
+# Zerglings (with Metabolic Boost) against marines that stand and shoot (chase) or step back
+# while reloading (kite), at three sizes. For measuring the attack and flank baselines before
+# any training, to pick sizes where attack-move neither always wins nor always loses:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/zergling_surround_calibration.yaml --baseline flank --episodes 100
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.zergling_surround_task:ZerglingSurroundTask
+  upgrades: [ZerglingMovementSpeed]
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: lings_8v3_chase
+    learner: {Zergling: 8}
+    enemy: {Marine: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v3_kite
+    learner: {Zergling: 8}
+    enemy: {Marine: 3}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v5_chase
+    learner: {Zergling: 12}
+    enemy: {Marine: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v5_kite
+    learner: {Zergling: 12}
+    enemy: {Marine: 5}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_16v7_chase
+    learner: {Zergling: 16}
+    enemy: {Marine: 7}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_16v7_kite
+    learner: {Zergling: 16}
+    enemy: {Marine: 7}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

@@ -106,8 +106,8 @@ def main():
         else:
             choose_action = lambda observation: model.predict(observation, deterministic=True)[0]
     elif args.baseline:
-        rule = _baseline(env, args.baseline, parser)
-        choose_action = (lambda observations: np.array([rule(row) for row in observations])) if group else rule
+        policy = _baseline(env, args.baseline, parser)
+        choose_action = (lambda observations: np.array([policy(row) for row in observations])) if group else policy
     else:
         choose_action = lambda observation: env.action_space.sample()
     rule = _baseline(env, args.compare_with, parser) if args.compare_with else None

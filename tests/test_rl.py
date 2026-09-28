@@ -707,6 +707,82 @@ class GroupDecisionTest(unittest.TestCase):
         np.testing.assert_array_equal(self.driver.acting_slots, [False, True, False])
 
 
+class ZerglingSurroundTaskTest(unittest.TestCase):
+    """A zergling at (20.5, 20.5) with marines to its east and north."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.zergling_surround_task import ZerglingSurroundTask
+
+        self.task = ZerglingSurroundTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.ling = self.zergling(1, 20.5, 20.5)
+        self.east = StandInUnit(10, 25.5, 20.5, health=45, health_max=45, shield=0, shield_max=0)
+        self.north = StandInUnit(11, 20.5, 26.5, health=45, health_max=45, shield=0, shield_max=0)
+
+    def zergling(self, tag, x, y, health=35):
+        return StandInUnit(tag, x, y, health=health, health_max=35, shield=0, shield_max=0)
+
+    def flank(self, allies, enemies):
+        return self.task.baseline_policies()["flank"](self.task.observe(self.ling, allies, enemies))
+
+    def test_observation(self):
+        from tools.rl.examples.zergling_surround_task import FIRST_ALLY, FIRST_ENEMY, FIRST_RAY, INPUTS
+
+        allies = [self.zergling(3, 20.5, 17.5, health=14), self.zergling(2, 22.5, 20.5)]
+        observation = self.task.observe(self.ling, allies, [self.north, self.east]).astype(float).round(3).tolist()
+        self.assertEqual(len(observation), INPUTS)
+        self.assertEqual(observation[:2], [0.0, 1.0])
+        self.assertEqual(observation[FIRST_ENEMY:FIRST_ENEMY + 14],
+                         [1.0, 0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 1.0, 0.0, 0.6, 0.6, 1.0, 0.0, 0.0])  # closest first
+        self.assertEqual(observation[FIRST_ENEMY + 14:FIRST_ALLY], [0.0] * 14)
+        self.assertEqual(observation[FIRST_ALLY:FIRST_ALLY + 8], [1.0, 0.2, 0.0, 1.0, 1.0, 0.0, -0.3, 0.4])
+        self.assertEqual(observation[FIRST_ALLY + 8:FIRST_RAY], [0.0] * 8)
+        self.assertEqual(observation[FIRST_RAY], 1.0)
+
+    def test_enemy_movement_since_the_last_decision(self):
+        from tools.rl.examples.zergling_surround_task import FIRST_ENEMY
+
+        self.task.observe(self.ling, [], [self.east])
+        self.east.position = Point2((25.92, 20.5))
+        self.assertAlmostEqual(float(self.task.observe(self.ling, [], [self.east])[FIRST_ENEMY + 5]), 1.0, places=3)
+
+    def test_flank_runs_around_on_its_own_side(self):
+        from tools.rl.examples.free_kite_task import FIRST_MOVE
+
+        northeast, southeast = FIRST_MOVE + 1, FIRST_MOVE + 7
+        self.assertEqual(self.flank([self.zergling(2, 20.5, 18.5)], [self.east]), northeast)  # allies south
+        self.assertEqual(self.flank([self.zergling(2, 20.5, 22.5)], [self.east]), southeast)  # allies north
+
+    def test_flank_attacks_when_close_or_past_the_enemies(self):
+        from tools.rl.examples.free_kite_task import ATTACK_CLOSEST
+
+        touching = StandInUnit(12, 21.5, 20.5, health=45, health_max=45, shield=0, shield_max=0)
+        self.assertEqual(self.flank([self.zergling(2, 20.5, 18.5)], [touching]), ATTACK_CLOSEST)
+        behind = StandInUnit(13, 17.5, 20.5, health=45, health_max=45, shield=0, shield_max=0)
+        self.assertEqual(self.flank([self.zergling(2, 10.5, 20.5)], [behind]), ATTACK_CLOSEST)
+        self.assertEqual(self.task.baseline_policies()["attack"](None), ATTACK_CLOSEST)
+
+    def test_rewards(self):
+        self.assertEqual(self.task.reward(FightSnapshot(100, 100, 100, 200), FightSnapshot(90, 70, 100, 200)), 15.0)
+        self.task.observe(self.ling, [self.zergling(2, 22.5, 20.5), self.zergling(3, 20.5, 17.5)], [self.east])
+        half = self.zergling(1, 20.5, 20.5, health=17.5)
+        self.assertAlmostEqual(self.task.terminal_reward("win", [half]), 100 * 0.5 / 3)
+        self.assertEqual(self.task.terminal_reward("loss", []), 0.0)
+        self.task.start_episode()
+        self.assertEqual(self.task.terminal_reward("win", [half]), 0.0)
+
+    def test_group_slots_cover_the_largest_calibration_group(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/zergling_surround_calibration.yaml")
+        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+        self.assertLessEqual(largest, self.task.group_slots)
+
+
 class KiteOrderTest(unittest.TestCase):
     """A marine at (20, 20) against zerglings to its east."""
 
