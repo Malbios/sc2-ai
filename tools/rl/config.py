@@ -48,10 +48,24 @@ class PPOConfig:
     gamma: float = 0.99
     ent_coef: float = 0.01
     net_arch: tuple[int, ...] = (64, 64)  # hidden layer sizes
+    learning_rate_end: float | None = None  # the learning rate falls linearly to this over the run
+    clip_range: float = 0.2  # how far one update may move the model's choices
+    target_kl: float | None = None  # an update stops its passes once the model changed this much
+    normalize_reward: bool = False  # rescale rewards to a steady size while training (VecNormalize)
 
     def as_kwargs(self) -> dict:
-        settings = {field.name: getattr(self, field.name) for field in fields(self) if field.name != "net_arch"}
+        """PPO's keyword arguments. net_arch goes into policy_kwargs; normalize_reward is for the
+        training envs, not PPO."""
+        not_ppo = {"net_arch", "learning_rate_end", "normalize_reward"}
+        settings = {field.name: getattr(self, field.name) for field in fields(self) if field.name not in not_ppo}
+        if self.learning_rate_end is not None:
+            settings["learning_rate"] = linear_schedule(self.learning_rate, self.learning_rate_end)
         return {**settings, "policy_kwargs": {"net_arch": list(self.net_arch)}}
+
+
+def linear_schedule(start: float, end: float):
+    """An SB3 schedule: SB3 passes the share of training still to go, from 1 down to 0."""
+    return lambda progress_remaining: end + (start - end) * progress_remaining
 
 
 @dataclass(frozen=True)

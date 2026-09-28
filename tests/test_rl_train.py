@@ -107,6 +107,31 @@ class FavoredActionTest(unittest.TestCase):
         self.assertAlmostEqual(float(chosen.mean()), 0.85, delta=0.02)
 
 
+@unittest.skipUnless(HAS_SB3, "needs Stable-Baselines3")
+class RewardScalingTest(unittest.TestCase):
+    def test_only_when_configured_and_only_rewards(self):
+        from types import SimpleNamespace
+
+        import gymnasium as gym
+        from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
+
+        from tools.rl.config import PPOConfig
+        from tools.rl.train import wrap_for_training
+
+        class StandInEnv(gym.Env):
+            observation_space = gym.spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32)
+            action_space = gym.spaces.Discrete(2)
+
+        def config(**ppo):
+            return SimpleNamespace(learner=SimpleNamespace(task="tools.rl.examples.cooldown_kite_task:CooldownKiteTask"),
+                                   ppo=PPOConfig(**ppo))
+
+        self.assertIsInstance(wrap_for_training(DummyVecEnv([StandInEnv]), config()), VecMonitor)
+        scaled = wrap_for_training(DummyVecEnv([StandInEnv]), config(normalize_reward=True, gamma=0.999))
+        self.assertIsInstance(scaled, VecNormalize)
+        self.assertEqual((scaled.norm_obs, scaled.norm_reward, scaled.gamma), (False, True, 0.999))
+
+
 class StandInGames:
     """Two group envs with 3 slots of 2 inputs, as a VecEnv would return them."""
 

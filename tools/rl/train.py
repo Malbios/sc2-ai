@@ -24,7 +24,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
 from stable_baselines3.common.logger import configure
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecMonitor
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecMonitor, VecNormalize
 
 from tools.rl.config import TrainingConfig, load_class, load_config, self_play_side
 from tools.rl.env import SC2MicroEnv, make_env
@@ -48,10 +48,10 @@ def buffer_settings(config: TrainingConfig) -> dict:
     return {}
 
 
-def new_model(config: TrainingConfig, env) -> PPO:
-    """A fresh model. If the task favors an action, it starts out picking that one with the task's
-    favored_action_probability (see MicroTask.favored_action)."""
-    model = model_class(config)("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs(),
+def new_model(config: TrainingConfig, env, seed: int | None = None) -> PPO:
+    """A fresh model (from `seed`, or a random one). If the task favors an action, it starts out
+    picking that one with the task's favored_action_probability (see MicroTask.favored_action)."""
+    model = model_class(config)("MlpPolicy", env, device="cpu", verbose=1, seed=seed, **config.ppo.as_kwargs(),
                                 **buffer_settings(config))
     task = load_class(config.learner.task)
     if task.favored_action is not None:
@@ -222,12 +222,23 @@ def make_vec_env(config: TrainingConfig, n_envs: int):
     # "spawn" gives every env a fresh process: python-sc2 kills all SC2 processes of a Python
     # process when one game ends, so environments must not share one.
     venv = SubprocVecEnv(factories, start_method="spawn") if n_envs > 1 else DummyVecEnv(factories)
+    return wrap_for_training(venv, config)
+
+
+def wrap_for_training(venv: VecEnv, config: TrainingConfig) -> VecEnv:
+    """Group tasks get a stream per slot; every task gets episode logging, and reward scaling if
+    the config asks for it."""
     slots = load_class(config.learner.task).group_slots
-    return VecMonitor(SlotVecEnv(venv, slots) if slots else venv)
+    monitored = VecMonitor(SlotVecEnv(venv, slots) if slots else venv)
+    if config.ppo.normalize_reward:
+        # Outside VecMonitor, so the logged episode rewards stay unscaled. Inputs aren't touched,
+        # so evaluating a saved model needs nothing from here.
+        return VecNormalize(monitored, norm_obs=False, norm_reward=True, gamma=config.ppo.gamma)
+    return monitored
 
 
 def train(config: TrainingConfig, n_envs: int, timesteps: int, out: Path, resume: str | None,
-          warm_start: str | None = None) -> Path:
+          warm_start: str | None = None, seed: int | None = None) -> Path:
     venv = make_vec_env(config, n_envs)
     try:
         if resume:
@@ -235,7 +246,7 @@ def train(config: TrainingConfig, n_envs: int, timesteps: int, out: Path, resume
         elif warm_start:
             model = warm_start_model(warm_start, config, venv)
         else:
-            model = new_model(config, venv)
+            model = new_model(config, venv, seed)
         model.set_logger(configure(str(out / "logs"), ["stdout", "csv"]))
         checkpoints = CheckpointCallback(save_freq=max(50_000 // venv.num_envs, 1), save_path=str(out / "checkpoints"))
         model.learn(timesteps, callback=CallbackList([checkpoints, FightStatsCallback()]),
@@ -296,6 +307,7 @@ def main():
     start.add_argument("--resume", help="continue training this model (.zip) instead of starting fresh")
     start.add_argument("--warm-start", help="start from this model's weights (.zip), trained on a task "
                                             "with the same inputs minus some at the end")
+    parser.add_argument("--seed", type=int, help="random start of a new model, to repeat a run differently")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -308,7 +320,7 @@ def main():
         results = train_self_play(config, n_envs, out)
         print(f"Done: side a -> {results['a']}, side b -> {results['b']}")
     else:
-        print(f"Done: {train(config, n_envs, args.timesteps, out, args.resume, args.warm_start)}")
+        print(f"Done: {train(config, n_envs, args.timesteps, out, args.resume, args.warm_start, args.seed)}")
 
 
 if __name__ == "__main__":

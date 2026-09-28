@@ -836,6 +836,55 @@ class DecideEveryTest(unittest.TestCase):
             parse_config({**base, "learner": {"task": "m:C", "decide_every": 0}})
 
 
+class PPOSettingsTest(unittest.TestCase):
+    BASE = {"learner": {"task": "m:C"}, "scenarios": [{"name": "s", "learner": {"Zergling": 1}, "enemy": {"Marine": 1}}]}
+
+    def test_defaults_keep_the_old_behavior(self):
+        settings = parse_config(self.BASE).ppo
+        self.assertEqual((settings.learning_rate_end, settings.clip_range, settings.target_kl, settings.normalize_reward),
+                         (None, 0.2, None, False))
+        kwargs = settings.as_kwargs()
+        self.assertEqual(kwargs["learning_rate"], 3e-4)
+        self.assertNotIn("normalize_reward", kwargs)
+        self.assertNotIn("learning_rate_end", kwargs)
+
+    def test_stability_settings(self):
+        settings = parse_config({**self.BASE, "ppo": {"learning_rate": 1e-4, "learning_rate_end": 1e-5,
+                                                      "clip_range": 0.1, "target_kl": 0.02, "normalize_reward": True}}).ppo
+        kwargs = settings.as_kwargs()
+        schedule = kwargs["learning_rate"]
+        self.assertAlmostEqual(schedule(1.0), 1e-4)
+        self.assertAlmostEqual(schedule(0.5), 5.5e-5)
+        self.assertAlmostEqual(schedule(0.0), 1e-5)
+        self.assertEqual((kwargs["clip_range"], kwargs["target_kl"], settings.normalize_reward), (0.1, 0.02, True))
+        with self.assertRaisesRegex(ValueError, "unknown 'ppo' settings"):
+            parse_config({**self.BASE, "ppo": {"learning_rate_finish": 1e-5}})
+
+
+class StabilityTest(unittest.TestCase):
+    def test_windows_and_holds(self):
+        from tools.rl.stability import holds, windows
+
+        rising = [(steps, 0.1 if steps <= 100_000 else 0.4) for steps in range(20_000, 2_500_001, 20_000)]
+        start, peak, end = windows(rising)
+        self.assertEqual((round(start, 2), round(peak, 2), round(end, 2)), (0.1, 0.4, 0.4))
+        self.assertTrue(holds(start, peak, end))
+        self.assertFalse(holds(0.1, 0.47, 0.0))  # the collapse of the earlier run
+        self.assertFalse(holds(0.1, 0.3, 0.15))  # holding, but barely above the start
+        self.assertFalse(holds(0.1, 0.47, 0.40))  # fell more than 5 points from the peak window
+
+    def test_reads_progress_csv(self):
+        import tempfile
+        from pathlib import Path
+
+        from tools.rl.stability import read_win_rates
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "progress.csv"
+            path.write_text("time/total_timesteps,fights/all/win_rate\n16384,\n32768,0.25\n", encoding="utf-8")
+            self.assertEqual(read_win_rates(path), [(32768, 0.25)])
+
+
 class KiteOrderTest(unittest.TestCase):
     """A marine at (20, 20) against zerglings to its east."""
 
