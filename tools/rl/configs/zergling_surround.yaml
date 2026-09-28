@@ -1,0 +1,82 @@
+# Zerglings (with Metabolic Boost) against marines, all zerglings deciding together (group task).
+# Sizes from the calibration (see the design doc): attack-move wins 8v5 and 12v8 with 65 to 85%
+# of its life lost (the bar there is life lost), and 4 to 30% of 8v6 and 12v9 (the bar is wins).
+# Marines stand and shoot (chase) or step back while reloading (kite).
+#
+#   python -m tools.rl.train --config tools/rl/configs/zergling_surround.yaml --timesteps 10000000 --out models/lings
+#
+# --timesteps counts every slot's decisions (16 per game step), so 10M is about 625k group decisions.
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.zergling_surround_task:ZerglingSurroundTask
+  upgrades: [ZerglingMovementSpeed]
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: lings_8v5_chase
+    learner: {Zergling: 8}
+    enemy: {Marine: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v5_kite
+    learner: {Zergling: 8}
+    enemy: {Marine: 5}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v6_chase
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v6_kite
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v8_chase
+    learner: {Zergling: 12}
+    enemy: {Marine: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v8_kite
+    learner: {Zergling: 12}
+    enemy: {Marine: 8}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_chase
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_kite
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
