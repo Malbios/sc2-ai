@@ -358,6 +358,28 @@ What the ravager baselines showed (bile, 2026-09). Bile lands about 1.6 s after 
   rule and no sign of aimed bile. Winning alone wasn't enough; the bile skill itself didn't get
   learned. Likely reasons: bile is ready only every 7 s, 8 of 18 actions are biles and most of
   them miss, and a hit lands 12 decisions after the cast, so good aim is rare and hard to credit.
+- **Paying for damage and masking bile helped a little, not enough.** Same fights, but the
+  reward pays for the share of enemy life taken (bile counts, the reload reward is gone), and the
+  8 bile actions are masked while bile isn't ready (sb3-contrib's MaskablePPO). At 500k it dealt
+  71% to 2 chasers (earlier runs 47%) and lost 43% of its life against 1 chaser, level with the
+  lead rule (44%). Later checkpoints (1M to final, 200 fights each) traded that for the leashers:
+
+  | checkpoint | 1 vs 2 wins: chase / dodge / leash | 1 vs 1 life lost: chase / dodge / leash |
+  |---|---|---|
+  | 1M | 6 / 12 / 74% | 57 / 46 / 43% |
+  | 1.25M | 6 / 6 / 78% | 60 / 53 / 46% |
+  | 1.5M | 3 / 2 / 86% | 56 / 62 / 42% (10% lost vs dodgers) |
+  | 1.75M | 4 / 0 / 81% | 61 / 54 / 35% |
+  | 2M | 8 / 4 / 87% | 53 / 51 / 32% |
+  | final | 4 / 6 / 78% | 54 / 49 / 27% |
+
+  Against chasers it is level with the lead rule (4%), not better; against dodgers far below it
+  (55%); against leashers below the kite rule (100%), with up to 21% of fights timing out. In
+  1 vs 1 it ended up kiting like the smart rule, not biling like the lead rule. So a model can
+  learn some bile, but in this mix of fights it doesn't keep it.
+- **Evaluation noise is large.** 2M and final are 896 decisions apart, almost the same model,
+  yet differ by up to 9 points (leashers 87 vs 78%). With 200 fights, treat gaps under about 5
+  points near 5% win rates, and under about 10 points near 50%, as chance.
 
 Tooling pitfalls:
 
