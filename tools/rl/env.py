@@ -1,4 +1,5 @@
-"""SC2MicroEnv: a Gymnasium environment for one learner unit type fighting through scenarios."""
+"""SC2MicroEnv: a Gymnasium environment for one learner unit type fighting through scenarios.
+SC2GroupEnv: the same for group tasks, where all units decide together."""
 
 import random
 
@@ -46,3 +47,33 @@ class SC2MicroEnv(gym.Env):
 
     def close(self):
         self.driver.close()
+
+
+class SC2GroupEnv(SC2MicroEnv):
+    """Each step is one decision for every unit of the fight: observations are stacked by slot
+    (see MicroTask.group_slots), and the action has one entry per slot. The reward is the team's;
+    info["slot_rewards"] gives it to each slot whose unit was alive to act, and 0 to the others,
+    so each slot can be trained as a stream of its own (see train.SlotVecEnv)."""
+
+    def __init__(self, config: TrainingConfig, rank: int = 0):
+        super().__init__(config, rank)
+        slots = self.task.group_slots
+        if self.task.uses_action_masks:
+            raise ValueError("group tasks can't mask actions yet")
+        for scenario in config.scenarios:
+            if sum(scenario.learner.values()) > slots:
+                raise ValueError(f"scenario '{scenario.name}' has more learner units than the task's {slots} slots")
+        shape = (slots,) + self.task.observation_space.shape
+        self.observation_space = gym.spaces.Box(-np.inf, np.inf, shape=shape, dtype=np.float32)
+        self.action_space = gym.spaces.MultiDiscrete([self.task.action_space.n] * slots)
+
+    def step(self, action):
+        acting = self.driver.acting_slots.copy()
+        observation, reward, terminated, truncated, info = self.driver.step(np.asarray(action))
+        return observation, reward, terminated, truncated, {**info, "slot_rewards": reward * acting}
+
+
+def make_env(config: TrainingConfig, rank: int = 0) -> SC2MicroEnv:
+    """The env the config's task needs: SC2GroupEnv for group tasks, else SC2MicroEnv."""
+    group = load_class(config.learner.task).group_slots
+    return (SC2GroupEnv if group else SC2MicroEnv)(config, rank)

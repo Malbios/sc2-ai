@@ -647,6 +647,66 @@ class LeashOrderTest(unittest.TestCase):
         self.assertEqual((target.tag, returning), (1, False))
 
 
+class StandInGroup(list):
+    """Just enough of python-sc2's Units for the driver's group decisions."""
+
+    def find_by_tag(self, tag):
+        return next((unit for unit in self if unit.tag == tag), None)
+
+    def tags_not_in(self, tags):
+        return StandInGroup(unit for unit in self if unit.tag not in tags)
+
+
+class GroupDecisionTest(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from gymnasium import spaces
+
+        from tools.rl.driver import Episode, GameDriver
+
+        class GroupTask(MicroTask):
+            observation_space = spaces.Box(-np.inf, np.inf, shape=(2,), dtype=np.float32)
+            action_space = spaces.Discrete(4)
+            group_slots = 3
+
+            def observe(self, unit, allies, enemies):
+                return np.array([unit.tag, len(allies)], dtype=np.float32)
+
+            def apply(self, unit, action, allies, enemies):
+                unit.commands.append(action)
+
+        self.driver = GameDriver(SimpleNamespace(decision_interval=3), GroupTask(), random.Random())
+        self.addCleanup(self.driver.loop.close)
+        self.driver.episode = Episode(scenario=None, slot_tags=[5, 7])
+        self.asked = []
+
+        async def ask(event):
+            self.asked.append(event)
+            return np.array([1, 2, 3])
+
+        self.driver._ask = ask
+
+    def decide(self, *units):
+        self.driver.loop.run_until_complete(self.driver._decide_as_group(StandInGroup(units), enemies=[]))
+
+    def test_one_request_with_a_row_per_slot(self):
+        first, second = StandInUnit(5, 0, 0), StandInUnit(7, 1, 0)
+        self.decide(second, first)
+        (kind, observations), = self.asked
+        self.assertEqual(kind, "decide")
+        np.testing.assert_array_equal(observations, [[5, 1], [7, 1], [0, 0]])
+        self.assertEqual((first.commands, second.commands), ([1], [2]))
+        np.testing.assert_array_equal(self.driver.acting_slots, [True, True, False])
+
+    def test_a_dead_unit_keeps_its_slot_empty(self):
+        second = StandInUnit(7, 1, 0)
+        self.decide(second)
+        np.testing.assert_array_equal(self.asked[0][1], [[0, 0], [7, 0], [0, 0]])
+        self.assertEqual(second.commands, [2])
+        np.testing.assert_array_equal(self.driver.acting_slots, [False, True, False])
+
+
 class KiteOrderTest(unittest.TestCase):
     """A marine at (20, 20) against zerglings to its east."""
 

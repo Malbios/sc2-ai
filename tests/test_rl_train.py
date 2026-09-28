@@ -69,5 +69,62 @@ class ModelClassTest(unittest.TestCase):
         self.assertIs(model_class(config("tools.rl.examples.ravager_task:RavagerTask")), PPO)
 
 
+class StandInGames:
+    """Two group envs with 3 slots of 2 inputs, as a VecEnv would return them."""
+
+    num_envs = 2
+
+    def __init__(self, step_result):
+        import gymnasium as gym
+
+        self.observation_space = gym.spaces.Box(-np.inf, np.inf, shape=(3, 2), dtype=np.float32)
+        self.action_space = gym.spaces.MultiDiscrete([4, 4, 4])
+        self.step_result = step_result
+        self.actions = None
+
+    def reset(self):
+        return np.arange(12, dtype=np.float32).reshape(2, 3, 2)
+
+    def step_async(self, actions):
+        self.actions = actions
+
+    def step_wait(self):
+        return self.step_result
+
+
+@unittest.skipUnless(HAS_SB3, "needs Stable-Baselines3")
+class SlotVecEnvTest(unittest.TestCase):
+    def setUp(self):
+        from tools.rl.train import SlotVecEnv
+
+        observations = np.arange(12, dtype=np.float32).reshape(2, 3, 2)
+        last = np.full((3, 2), 9.0, dtype=np.float32)
+        infos = [
+            {"slot_rewards": np.array([0.5, 0.5, 0.0])},
+            {"slot_rewards": np.array([1.0, 0.0, 1.0]), "terminal_observation": last,
+             "TimeLimit.truncated": True, "outcome": "timeout", "scenario": "s"},
+        ]
+        self.games = StandInGames((observations, np.array([0.5, 1.0]), np.array([False, True]), infos))
+        self.venv = SlotVecEnv(self.games, slots=3)
+
+    def test_every_slot_is_an_env(self):
+        self.assertEqual((self.venv.num_envs, self.venv.observation_space.shape, self.venv.action_space.n), (6, (2,), 4))
+        self.assertEqual(self.venv.reset().shape, (6, 2))
+        self.venv.step_async(np.arange(6))
+        np.testing.assert_array_equal(self.games.actions, [[0, 1, 2], [3, 4, 5]])
+
+    def test_rewards_dones_and_infos_per_slot(self):
+        observations, rewards, dones, infos = self.venv.step_wait()
+        self.assertEqual(observations.shape, (6, 2))
+        np.testing.assert_array_equal(rewards, [0.5, 0.5, 0.0, 1.0, 0.0, 1.0])
+        np.testing.assert_array_equal(dones, [False, False, False, True, True, True])
+        self.assertEqual(infos[0], {})
+        for slot in (3, 4, 5):
+            np.testing.assert_array_equal(infos[slot]["terminal_observation"], [9.0, 9.0])
+            self.assertTrue(infos[slot]["TimeLimit.truncated"])
+        self.assertEqual((infos[3]["outcome"], infos[3]["scenario"]), ("timeout", "s"))
+        self.assertNotIn("outcome", infos[4])
+
+
 if __name__ == "__main__":
     unittest.main()

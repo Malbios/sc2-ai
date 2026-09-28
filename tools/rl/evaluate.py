@@ -7,7 +7,8 @@
     python -m tools.rl.evaluate --config ... --model ... --replay models/stalker/eval.SC2Replay
     python -m tools.rl.evaluate --config ... --model ... --compare-with kite
 
-The model acts deterministically (always its most likely action). --replay saves every evaluated
+The model acts deterministically (always its most likely action); in group tasks, every unit
+applies the model or baseline to its own observation. --replay saves every evaluated
 fight, back to back, as one SC2 4.10 replay (open it in sc2-observer).
 """
 
@@ -16,8 +17,10 @@ from collections import defaultdict
 from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
+
 from tools.rl.config import ENEMY_MODES, load_config
-from tools.rl.env import SC2MicroEnv
+from tools.rl.env import SC2MicroEnv, make_env
 
 
 def summarize(fights: list[dict]) -> str:
@@ -89,7 +92,10 @@ def main():
     if args.enemy_mode:
         config = replace(config, enemy=replace(config.enemy, mode=args.enemy_mode))
 
-    env = SC2MicroEnv(config)
+    env = make_env(config)
+    group = bool(env.task.group_slots)
+    if group and args.compare_with:
+        parser.error("--compare-with doesn't support group tasks yet")
     if args.model:
         from tools.rl.train import model_class
 
@@ -100,7 +106,8 @@ def main():
         else:
             choose_action = lambda observation: model.predict(observation, deterministic=True)[0]
     elif args.baseline:
-        choose_action = _baseline(env, args.baseline, parser)
+        rule = _baseline(env, args.baseline, parser)
+        choose_action = (lambda observations: np.array([rule(row) for row in observations])) if group else rule
     else:
         choose_action = lambda observation: env.action_space.sample()
     rule = _baseline(env, args.compare_with, parser) if args.compare_with else None

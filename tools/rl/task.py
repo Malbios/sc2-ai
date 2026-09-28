@@ -35,6 +35,9 @@ class MicroTask:
     action_space: spaces.Discrete
     wants_abilities = False  # see_abilities costs one extra request to SC2 per game step
     uses_action_masks = False  # trains with sb3-contrib's MaskablePPO, see action_mask
+    # Group tasks: all units decide together, each in its own slot and training stream (see
+    # SC2GroupEnv). The number of slots caps the learner units per fight. 0: one unit at a time.
+    group_slots = 0
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """What the model sees when deciding for `unit`. `allies` excludes the unit itself;

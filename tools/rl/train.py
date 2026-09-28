@@ -20,10 +20,11 @@ import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
 from stable_baselines3.common.logger import configure
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecMonitor
+from gymnasium import spaces
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecMonitor
 
 from tools.rl.config import TrainingConfig, load_class, load_config, self_play_side
-from tools.rl.env import SC2MicroEnv
+from tools.rl.env import SC2MicroEnv, make_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -99,12 +100,71 @@ class FightStatsCallback(BaseCallback):
         return True
 
 
+class SlotVecEnv(VecEnv):
+    """Presents each slot of each group env (SC2GroupEnv) to SB3 as an env of its own, so every
+    unit's decisions form their own stream with the team reward (independent PPO with one shared
+    network). A fight ends for all its slots at once. The fight's info (outcome, damage, ...)
+    goes to slot 0 only, so every fight is counted once."""
+
+    def __init__(self, games: VecEnv, slots: int):
+        self.games, self.slots = games, slots
+        per_slot = spaces.Box(-np.inf, np.inf, shape=games.observation_space.shape[1:], dtype=np.float32)
+        super().__init__(games.num_envs * slots, per_slot, spaces.Discrete(int(games.action_space.nvec[0])))
+
+    def reset(self) -> np.ndarray:
+        return self._flat(self.games.reset())
+
+    def step_async(self, actions: np.ndarray) -> None:
+        self.games.step_async(np.asarray(actions).reshape(self.games.num_envs, self.slots))
+
+    def step_wait(self):
+        observations, _, dones, game_infos = self.games.step_wait()
+        rewards = np.stack([info["slot_rewards"] for info in game_infos]).astype(np.float32)
+        infos = []
+        for info, done in zip(game_infos, dones):
+            for slot in range(self.slots):
+                slot_info = {}
+                if done:
+                    slot_info["terminal_observation"] = info["terminal_observation"][slot]
+                    slot_info["TimeLimit.truncated"] = info.get("TimeLimit.truncated", False)
+                    if slot == 0:
+                        slot_info.update({key: value for key, value in info.items()
+                                          if key not in ("slot_rewards", "terminal_observation")})
+                infos.append(slot_info)
+        return self._flat(observations), rewards.reshape(-1), np.repeat(dones, self.slots), infos
+
+    def close(self) -> None:
+        self.games.close()
+
+    def get_attr(self, attr_name, indices=None):
+        return [self.games.get_attr(attr_name, [index // self.slots])[0] for index in self._indices(indices)]
+
+    def set_attr(self, attr_name, value, indices=None) -> None:
+        self.games.set_attr(attr_name, value, sorted({index // self.slots for index in self._indices(indices)}))
+
+    def env_method(self, method_name, *method_args, indices=None, **method_kwargs):
+        return [self.games.env_method(method_name, *method_args, indices=[index // self.slots], **method_kwargs)[0]
+                for index in self._indices(indices)]
+
+    def env_is_wrapped(self, wrapper_class, indices=None):
+        return [self.games.env_is_wrapped(wrapper_class, [index // self.slots])[0] for index in self._indices(indices)]
+
+    def _flat(self, observations: np.ndarray) -> np.ndarray:
+        return observations.reshape((-1,) + observations.shape[2:])
+
+    def _indices(self, indices) -> list[int]:
+        if indices is None:
+            return list(range(self.num_envs))
+        return [indices] if isinstance(indices, int) else list(indices)
+
+
 def make_vec_env(config: TrainingConfig, n_envs: int):
-    factories = [partial(SC2MicroEnv, config, rank) for rank in range(n_envs)]
+    factories = [partial(make_env, config, rank) for rank in range(n_envs)]
     # "spawn" gives every env a fresh process: python-sc2 kills all SC2 processes of a Python
     # process when one game ends, so environments must not share one.
     venv = SubprocVecEnv(factories, start_method="spawn") if n_envs > 1 else DummyVecEnv(factories)
-    return VecMonitor(venv)
+    slots = load_class(config.learner.task).group_slots
+    return VecMonitor(SlotVecEnv(venv, slots) if slots else venv)
 
 
 def train(config: TrainingConfig, n_envs: int, timesteps: int, out: Path, resume: str | None,
@@ -118,7 +178,7 @@ def train(config: TrainingConfig, n_envs: int, timesteps: int, out: Path, resume
         else:
             model = new_model(config, venv)
         model.set_logger(configure(str(out / "logs"), ["stdout", "csv"]))
-        checkpoints = CheckpointCallback(save_freq=max(50_000 // n_envs, 1), save_path=str(out / "checkpoints"))
+        checkpoints = CheckpointCallback(save_freq=max(50_000 // venv.num_envs, 1), save_path=str(out / "checkpoints"))
         model.learn(timesteps, callback=CallbackList([checkpoints, FightStatsCallback()]),
                     reset_num_timesteps=not resume)
         model.save(out / "final.zip")

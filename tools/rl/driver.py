@@ -13,7 +13,8 @@ on its own.
 
 Several learner units ("unit cycling"): each decision request is for one unit, and the game only
 advances once every living learner unit has decided. The team reward for that game step is paid
-out on the step that let the game advance.
+out on the step that let the game advance. Group tasks (MicroTask.group_slots) instead get one
+request per game step with every unit's observation, and every unit's action in the answer.
 """
 
 import asyncio
@@ -60,6 +61,7 @@ class Episode:
     learner_center: Point2 | None = None
     enemy_center: Point2 | None = None
     learner_tags: set[int] = field(default_factory=set)
+    slot_tags: list[int] = field(default_factory=list)  # group tasks: the unit deciding in each slot
     enemy_tags: set[int] = field(default_factory=set)
     dead_enemies: set[int] = field(default_factory=set)
     enemy_life: dict[int, float] = field(default_factory=dict)  # last known, per tag
@@ -128,8 +130,10 @@ class GameDriver:
         self._waiting_for: str | None = None  # "ready" or "decide" once the env has seen the request
         # Returned when a fight ends. PPO estimates the rest of a cut-off fight from it, so it must
         # be a real situation, not a blank one.
-        self.last_observation = np.zeros(task.observation_space.shape, dtype=np.float32)
+        slots = (task.group_slots,) if task.group_slots else ()
+        self.last_observation = np.zeros(slots + task.observation_space.shape, dtype=np.float32)
         self.action_mask = np.ones(task.action_space.n, dtype=bool)  # for the pending decision
+        self.acting_slots = np.zeros(task.group_slots, dtype=bool)  # group tasks: slots with a living unit
 
     # ----- learner side (runs inside the game, on the event loop) -----
 
@@ -182,6 +186,7 @@ class GameDriver:
                     episode.phase = "clear"
                 return
             episode.learner_tags, episode.enemy_tags = own.tags, enemies.tags
+            episode.slot_tags = sorted(own.tags)[:self.task.group_slots]
             episode.start = episode.last = FightSnapshot(life(own), life(enemies), life(own), life(enemies))
             episode.start_loop = bot.state.game_loop
             episode.phase = "fight"
@@ -221,6 +226,12 @@ class GameDriver:
 
         self.task.see_detectors((bot.enemy_units | bot.enemy_structures).filter(lambda unit: unit.is_detector))
         await self._share_abilities(bot, own)
+        if self.task.group_slots:
+            await self._decide_as_group(own, enemies)
+        else:
+            await self._decide_one_by_one(own, enemies)
+
+    async def _decide_one_by_one(self, own: Units, enemies: Units):
         for unit in sorted(own, key=lambda u: u.tag):
             allies = own.tags_not_in({unit.tag})
             observation = self.task.observe(unit, allies, enemies)
@@ -231,6 +242,26 @@ class GameDriver:
                 self.episode = None
                 return
             self.task.apply(unit, int(action), allies, enemies)
+
+    async def _decide_as_group(self, own: Units, enemies: Units):
+        """One request for all units: row i of the observation is the unit in slot i, zeros for a
+        slot whose unit is dead, and action i is that unit's."""
+        observations = np.zeros_like(self.last_observation)
+        acting = np.zeros(self.task.group_slots, dtype=bool)
+        slot_units = {}
+        for slot, tag in enumerate(self.episode.slot_tags):
+            unit = own.find_by_tag(tag)
+            if unit is not None:
+                slot_units[slot] = unit
+                observations[slot] = self.task.observe(unit, own.tags_not_in({tag}), enemies)
+                acting[slot] = True
+        self.acting_slots = acting
+        actions = await self._ask(("decide", observations))
+        if actions is ABORT:
+            self.episode = None
+            return
+        for slot, unit in slot_units.items():
+            self.task.apply(unit, int(actions[slot]), own.tags_not_in({unit.tag}), enemies)
 
     async def _share_abilities(self, bot: BotAI, own: Units):
         if self.task.wants_abilities:
@@ -336,8 +367,9 @@ class GameDriver:
                 self._answer(ABORT)
             # "end" events of an episode that was already over are skipped
 
-    def step(self, action: int):
-        """Gymnasium step: (observation, reward, terminated, truncated, info)."""
+    def step(self, action: int | np.ndarray):
+        """Gymnasium step: (observation, reward, terminated, truncated, info). Group tasks pass one
+        action per slot."""
         if self._waiting_for != "decide":
             raise RuntimeError("step() called without a pending decision; call reset() first")
         self._answer(action)
