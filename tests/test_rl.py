@@ -647,6 +647,31 @@ class LeashOrderTest(unittest.TestCase):
         self.assertEqual((target.tag, returning), (1, False))
 
 
+class KiteOrderTest(unittest.TestCase):
+    """A marine at (20, 20) against zerglings to its east."""
+
+    def order(self, cooldown, *ling_positions):
+        from tools.rl.enemies import kite_order
+
+        marine = StandInUnit(1, 20, 20, cooldown=cooldown)
+        lings = [StandInUnit(2 + index, x, y) for index, (x, y) in enumerate(ling_positions)]
+        return kite_order(marine, lings)
+
+    def test_attacks_the_closest_when_the_weapon_is_ready(self):
+        self.assertEqual(self.order(0, (22, 20), (21, 20)).tag, 3)
+
+    def test_steps_back_from_the_targets_while_cooling_down(self):
+        self.assertEqual(self.order(5, (22, 21), (22, 19)), Point2((18, 20)))
+
+    def test_attacks_while_cooling_down_when_nothing_is_close(self):
+        self.assertEqual(self.order(5, (25, 20)).tag, 2)
+
+    def test_kite_is_a_known_behavior(self):
+        scenario = parse_scenarios([{"name": "k", "learner": {"Zergling": 8}, "enemy": {"Marine": 3},
+                                     "enemy_behavior": "kite"}])[0]
+        self.assertEqual(scenario.enemy_behavior, "kite")
+
+
 class ResearchTest(unittest.TestCase):
     def test_buildings_for_each_upgrade(self):
         from sc2.ids.upgrade_id import UpgradeId

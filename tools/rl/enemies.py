@@ -33,7 +33,7 @@ def fighters(units: Units) -> Units:
 class EnemyBriefing:
     """How the scripted enemy fights the current fight."""
 
-    behavior: str  # "chase" or "leash", see Scenario.enemy_behavior
+    behavior: str  # "chase", "leash" or "kite", see Scenario.enemy_behavior
     home: Point2  # where the enemy group spawned
     leash: float
     bile_dodge_reaction: float | None = None  # seconds before stepping out of a bile; None: never
@@ -43,6 +43,9 @@ class EnemyBriefing:
 HOME_RADIUS = 1.5
 # A dodging unit keeps this far outside a bile's edge, so it also doesn't walk into one.
 DODGE_MARGIN = 0.5
+# A kiting unit steps back this far while its weapon cools down with a target this close.
+KITE_TRIGGER = 3.0
+KITE_STEP = 2.0
 
 
 def dodge_point(position: Point2, radius: float, biles: list[tuple[Point2, float]]) -> Point2 | None:
@@ -70,9 +73,22 @@ def leash_order(unit: Unit, targets: Units, briefing: EnemyBriefing, returning: 
     return min(targets, key=lambda target: unit.position.distance_to(target.position)), False
 
 
+def kite_order(unit: Unit, targets: Units) -> Unit | Point2:
+    """A kiting unit's order: the closest target to attack, or, while its weapon cools down with a
+    target within KITE_TRIGGER, the point to step back to, away from the targets' center."""
+    closest = min(targets, key=lambda target: unit.position.distance_to(target.position))
+    if unit.weapon_cooldown <= 0 or unit.position.distance_to(closest.position) > KITE_TRIGGER:
+        return closest
+    away = unit.position - Point2.center([target.position for target in targets])
+    if away.length < 0.01:
+        return closest
+    return unit.position + away.normalized * KITE_STEP
+
+
 class ScriptedEnemyBot(BotAI):
     """Every fighter attacks the closest enemy fighter. Predictable on purpose. With a leash
-    briefing, it gives up and walks home past the leash distance instead of chasing forever.
+    briefing, it gives up and walks home past the leash distance instead of chasing forever. With
+    a kite briefing, it steps back from close targets while its weapon cools down.
     With a bile dodge reaction, a unit steps out of a ravager's bile once it has seen the bile for
     that long. Support units (an Overseer) stay at the center of the fighters."""
 
@@ -111,6 +127,13 @@ class ScriptedEnemyBot(BotAI):
             escape = dodge_point(unit.position, unit.radius, biles)
             if escape is not None:
                 unit.move(escape)
+                continue
+            if briefing is not None and briefing.behavior == "kite":
+                order = kite_order(unit, targets)
+                if isinstance(order, Point2):
+                    unit.move(order)
+                else:
+                    unit.attack(order)
                 continue
             if briefing is None or briefing.behavior != "leash":
                 unit.attack(targets.closest_to(unit))

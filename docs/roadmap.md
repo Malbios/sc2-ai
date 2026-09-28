@@ -15,7 +15,7 @@ The current goal is to find out whether RL micro beats scripted micro. The bot c
 - [x] Enemy detection: an Overseer that stays with its army (`enemy_support`), and tasks that
       see how close detection is
 - [x] Start a fresh SC2 game before SC2's 6.5-game-hour limit
-- [ ] Enemies that move while fighting: a scripted enemy that kites
+- [x] Enemies that move while fighting: a scripted enemy that kites (`enemy_behavior: kite`)
 - [ ] One model per own unit type that fights any enemy type (not one model per matchup): inputs
       that describe each seen enemy by its properties (its range and speed compared with mine,
       its damage against me, whether it can hit me), more than the 2 closest enemies, and enemy

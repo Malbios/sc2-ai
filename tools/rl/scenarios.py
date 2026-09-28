@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, replace
 
 from sc2.ids.unit_typeid import UnitTypeId
 
-ENEMY_BEHAVIORS = ("chase", "leash")
+ENEMY_BEHAVIORS = ("chase", "leash", "kite")
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,8 @@ class Scenario:
     distance: tuple[float, float] = (8.0, 12.0)  # between the two groups at spawn
     time_limit: float = 45.0  # game seconds before the fight counts as a tie
     # How the scripted enemy fights: "chase" never gives up; "leash" walks home once it gets
-    # farther than a leash distance (drawn from `leash` per fight) from where it spawned.
+    # farther than a leash distance (drawn from `leash` per fight) from where it spawned; "kite"
+    # steps back from close targets while its weapon cools down.
     enemy_behavior: str = "chase"
     leash: tuple[float, float] | None = None
     # Units spawned with the enemy that the fight doesn't need dead, e.g. an Overseer detecting
