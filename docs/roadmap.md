@@ -54,7 +54,9 @@ Several learner units already share one model in a fight, each deciding for itse
 - [ ] Zergling surround against marines (now): baselines measured, bar per fight is attack-move.
       A first run from scratch never learned to engage (stopped at 6.85M slot decisions). With
       an attack-biased start, training only on living units and per-unit reward, the best
-      checkpoints played like attack-move, then training collapsed.
+      checkpoints played like attack-move, then training collapsed. PPO's stability settings
+      stop the collapse (both seeds), but those models also play like attack-move; reward
+      scaling makes the collapse worse.
 - [ ] Then possibly banelings, mutalisks
 
 ## 4. The bot itself

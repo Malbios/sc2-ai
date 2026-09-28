@@ -420,6 +420,24 @@ every zergling decides for itself (group task). Rules, 50 to 100 fights each:
   and 12v8 same wins and life lost, 8v6 22 to 34% (attack-move 28 to 30%), 12v9 1 to 2% against
   standing marines (4%) and 18 to 25% against kiting ones (12%, from only 50 fights). Not
   counted as a win over the rule.
+- **PPO's stability settings stop the collapse; reward scaling makes it worse.** Three settings,
+  each run twice (seeds 1 and 2), 2.5M slot decisions. A run "holds" if its training win rate
+  over the last 500k is at least 10 points above its start and at most 5 below the 250k to 500k
+  window (`tools.rl.stability`):
+
+  | setting | start / 250k to 500k / end, seed 1 | seed 2 | holds |
+  |---|---|---|---|
+  | learning rate 1e-4 falling to 1e-5, 4 passes, clip 0.1, target_kl 0.02 | 25 / 47 / 56% | 20 / 41 / 54% | both |
+  | rewards rescaled while training (VecNormalize) | 28 / 1 / 0% | 25 / 8 / 0% | neither |
+  | both | 25 / 38 / 10% | 24 / 43 / 5% | neither |
+
+  The collapsed runs' final models won nothing, and up to half their fights timed out: the
+  zerglings stayed away from the marines. The stable models (100 fights per fight) played like
+  attack-move: 8v5 97 to 100%, 8v6 23 to 32% (attack-move 28 to 30%), 12v8 80 to 89% (90 to 92%),
+  12v9 against standing marines 2 to 4% (4%). Their choices ended up almost fixed, so they most
+  likely learned to attack reliably, not to surround. The one repeated difference: 12v9 against
+  kiting marines, 22 and 26% (and 18 to 25% in the earlier run's best checkpoints) against
+  attack-move's 12% from 50 fights.
 
 Tooling pitfalls:
 
