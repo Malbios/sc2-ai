@@ -1,0 +1,83 @@
+# Exploration sweep: zergling_sweep_stable.yaml (which held its gains but stopped exploring) with a
+# fixed bonus for varied choices, ent_coef 0.01. Blank (empty or dead) slots no longer train the
+# model, which is what turned this bonus into a collapse before.
+#
+#   python -m tools.rl.train --config tools/rl/configs/zergling_explore_medium.yaml --timesteps 5000000 --seed 1 --out models/explore-medium-1
+
+map: MicroTraining410
+decision_interval: 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.zergling_surround_task:ZerglingSurroundTask
+  upgrades: [ZerglingMovementSpeed]
+  decide_every: 3
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: lings_8v5_chase
+    learner: {Zergling: 8}
+    enemy: {Marine: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v5_kite
+    learner: {Zergling: 8}
+    enemy: {Marine: 5}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v6_chase
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v6_kite
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v8_chase
+    learner: {Zergling: 12}
+    enemy: {Marine: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v8_kite
+    learner: {Zergling: 12}
+    enemy: {Marine: 8}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_chase
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_kite
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0001
+  learning_rate_end: 0.00001
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 4
+  gamma: 0.999
+  ent_coef: 0.01
+  clip_range: 0.1
+  target_kl: 0.02
+  net_arch: [128, 128]
