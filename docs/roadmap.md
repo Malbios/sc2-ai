@@ -47,11 +47,14 @@ Several learner units already share one model in a fight, each deciding for itse
 - [x] Allies in the observation (where they are, their life), so units can react to each other
       (ZerglingSurroundTask: the 4 closest allies)
 - [x] More than the 2 closest enemies in the observation (ZerglingSurroundTask: 4)
-- [ ] A reward that tells which unit did well; today every unit gets the team's reward
+- [x] A reward that tells which unit did well (`MicroTask.share_team_reward`; zerglings: damage
+      goes to the ones that attacked)
 - [x] Faster training when a fight has many units: group tasks decide for all units at once, one
       training stream per unit (`MicroTask.group_slots`)
 - [ ] Zergling surround against marines (now): baselines measured, bar per fight is attack-move.
-      A first run from scratch never learned to engage (stopped at 6.85M slot decisions).
+      A first run from scratch never learned to engage (stopped at 6.85M slot decisions). With
+      an attack-biased start, training only on living units and per-unit reward, the best
+      checkpoints played like attack-move, then training collapsed.
 - [ ] Then possibly banelings, mutalisks
 
 ## 4. The bot itself

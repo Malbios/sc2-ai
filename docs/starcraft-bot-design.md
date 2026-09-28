@@ -409,6 +409,17 @@ every zergling decides for itself (group task). Rules, 50 to 100 fights each:
   a row of running in, and a random start cancels it with a move almost every time, so damage (and
   reward) almost never happened. The budget also looked bigger than it was: slot decisions count
   all 16 slots, so 2.5M were only about 1,000 fights (the ravager saw about 28,000 in 2M).
+- **Starting from attack-move fixed the start, not the result.** New models first picking
+  "attack closest" 85% of the time and deciding every 9 game loops engaged from the start, but
+  the model drifted back to random choices within 180k decisions: empty and dead slots were
+  about half of all training examples, and PPO's bonus for varied choices was their only signal.
+  With those examples left out, a unit's stream ended at its death, damage credited to the
+  zerglings that attacked, and no variety bonus, training wins rose from 12% to 47% by 300k,
+  then fell to 0% by 900k (unexplained; fights got longer, as if the zerglings avoided the
+  marines). The best checkpoints (250k to 350k, 100 fights each) played like attack-move: 8v5
+  and 12v8 same wins and life lost, 8v6 22 to 34% (attack-move 28 to 30%), 12v9 1 to 2% against
+  standing marines (4%) and 18 to 25% against kiting ones (12%, from only 50 fights). Not
+  counted as a win over the rule.
 
 Tooling pitfalls:
 
