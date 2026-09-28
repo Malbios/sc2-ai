@@ -52,5 +52,22 @@ class WidenInputsTest(unittest.TestCase):
             widen_inputs(_model(5).policy.state_dict(), _model(3).policy.state_dict())
 
 
+@unittest.skipUnless(HAS_SB3 and importlib.util.find_spec("sb3_contrib"), "needs Stable-Baselines3 and sb3-contrib")
+class ModelClassTest(unittest.TestCase):
+    def test_masked_tasks_train_with_maskable_ppo(self):
+        from types import SimpleNamespace
+
+        from sb3_contrib import MaskablePPO
+        from stable_baselines3 import PPO
+
+        from tools.rl.train import model_class
+
+        def config(task):
+            return SimpleNamespace(learner=SimpleNamespace(task=task))
+
+        self.assertIs(model_class(config("tools.rl.examples.ravager_task:RavagerBileTask")), MaskablePPO)
+        self.assertIs(model_class(config("tools.rl.examples.ravager_task:RavagerTask")), PPO)
+
+
 if __name__ == "__main__":
     unittest.main()

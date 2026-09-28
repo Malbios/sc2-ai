@@ -91,10 +91,14 @@ def main():
 
     env = SC2MicroEnv(config)
     if args.model:
-        from stable_baselines3 import PPO
+        from tools.rl.train import model_class
 
-        model = PPO.load(args.model, device="cpu")
-        choose_action = lambda observation: model.predict(observation, deterministic=True)[0]
+        model = model_class(config).load(args.model, device="cpu")
+        if env.task.uses_action_masks:
+            choose_action = lambda observation: model.predict(
+                observation, deterministic=True, action_masks=env.action_masks())[0]
+        else:
+            choose_action = lambda observation: model.predict(observation, deterministic=True)[0]
     elif args.baseline:
         choose_action = _baseline(env, args.baseline, parser)
     else:

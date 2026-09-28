@@ -127,6 +127,7 @@ class GameDriver:
         self._waiter: asyncio.Future | None = None
         self._waiting_for: str | None = None  # "ready" or "decide" once the env has seen the request
         self._zero_obs = np.zeros(task.observation_space.shape, dtype=np.float32)
+        self.action_mask = np.ones(task.action_space.n, dtype=bool)  # for the pending decision
 
     # ----- learner side (runs inside the game, on the event loop) -----
 
@@ -220,7 +221,10 @@ class GameDriver:
         await self._share_abilities(bot, own)
         for unit in sorted(own, key=lambda u: u.tag):
             allies = own.tags_not_in({unit.tag})
-            action = await self._ask(("decide", self.task.observe(unit, allies, enemies)))
+            observation = self.task.observe(unit, allies, enemies)
+            if self.task.uses_action_masks:
+                self.action_mask = self.task.action_mask(unit, allies, enemies)
+            action = await self._ask(("decide", observation))
             if action is ABORT:
                 self.episode = None
                 return

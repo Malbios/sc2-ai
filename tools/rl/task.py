@@ -34,6 +34,7 @@ class MicroTask:
     observation_space: spaces.Box
     action_space: spaces.Discrete
     wants_abilities = False  # see_abilities costs one extra request to SC2 per game step
+    uses_action_masks = False  # trains with sb3-contrib's MaskablePPO, see action_mask
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """What the model sees when deciding for `unit`. `allies` excludes the unit itself;
@@ -43,6 +44,11 @@ class MicroTask:
     def apply(self, unit: Unit, action: int, allies: Units, enemies: Units) -> None:
         """Turn the model's choice into python-sc2 commands for `unit`."""
         raise NotImplementedError
+
+    def action_mask(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
+        """Which actions `unit` may pick right now (True = allowed). Only used by tasks that set
+        `uses_action_masks`; called right after observe for the same decision."""
+        return np.ones(self.action_space.n, dtype=bool)
 
     def start_game(self, game_info: GameInfo) -> None:
         """Called once per game before any fight, for tasks that need the map (e.g. its pathing grid)."""

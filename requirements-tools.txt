@@ -10,4 +10,5 @@
 burnysc2==7.3.0
 gymnasium
 stable-baselines3
+sb3-contrib  # MaskablePPO, for tasks that mask actions; keep its version equal to stable-baselines3's
 pyyaml

@@ -22,14 +22,23 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList, Check
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecMonitor
 
-from tools.rl.config import TrainingConfig, load_config, self_play_side
+from tools.rl.config import TrainingConfig, load_class, load_config, self_play_side
 from tools.rl.env import SC2MicroEnv
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def model_class(config: TrainingConfig) -> type[PPO]:
+    """PPO, or sb3-contrib's MaskablePPO for tasks that mask actions (see MicroTask.action_mask)."""
+    if load_class(config.learner.task).uses_action_masks:
+        from sb3_contrib import MaskablePPO
+
+        return MaskablePPO
+    return PPO
+
+
 def new_model(config: TrainingConfig, env) -> PPO:
-    return PPO("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs())
+    return model_class(config)("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs())
 
 
 def load_model(path: str | Path, config: TrainingConfig, env) -> PPO:
@@ -37,7 +46,7 @@ def load_model(path: str | Path, config: TrainingConfig, env) -> PPO:
     exception: it is part of the saved model and can't change."""
     settings = config.ppo.as_kwargs()
     settings.pop("policy_kwargs")
-    return PPO.load(path, env=env, device="cpu", **settings)
+    return model_class(config).load(path, env=env, device="cpu", **settings)
 
 
 INPUT_LAYERS = ("mlp_extractor.policy_net.0.weight", "mlp_extractor.value_net.0.weight")

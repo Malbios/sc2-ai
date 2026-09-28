@@ -3,6 +3,7 @@
 import random
 
 import gymnasium as gym
+import numpy as np
 
 from tools.rl.config import TrainingConfig, load_class
 from tools.rl.driver import GameDriver
@@ -38,6 +39,10 @@ class SC2MicroEnv(gym.Env):
 
     def step(self, action):
         return self.driver.step(int(action))
+
+    def action_masks(self) -> np.ndarray:
+        """The actions the pending decision may pick; MaskablePPO asks for this before each one."""
+        return self.driver.action_mask
 
     def close(self):
         self.driver.close()

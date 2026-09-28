@@ -585,6 +585,39 @@ class RavagerTaskTest(unittest.TestCase):
         self.assertEqual(policies["bile_lead"](out_of_range), policies["smart"](out_of_range))
 
 
+class RavagerBileTaskTest(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.ravager_task import RavagerBileTask
+
+        self.task = RavagerBileTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.ravager = StandInCaster(1, 20.5, 20.5, cooldown=15, health=120, health_max=120, shield=0, shield_max=0)
+        self.roach = StandInUnit(2, 26.5, 20.5, health=145, health_max=145, shield=0, shield_max=0)
+
+    def test_bile_actions_are_masked_until_bile_is_ready(self):
+        from sc2.ids.ability_id import AbilityId
+
+        from tools.rl.examples.ravager_task import FIRST_BILE
+
+        self.assertTrue(self.task.uses_action_masks)
+        waiting = self.task.action_mask(self.ravager, [], [self.roach])
+        self.assertEqual(waiting.shape, (self.task.action_space.n,))
+        self.assertTrue(waiting[:FIRST_BILE].all())
+        self.assertFalse(waiting[FIRST_BILE:].any())
+        self.task.see_abilities({1: {AbilityId.EFFECT_CORROSIVEBILE}})
+        self.assertTrue(self.task.action_mask(self.ravager, [], [self.roach]).all())
+
+    def test_paid_for_damage_dealt_not_for_reloading(self):
+        before = FightSnapshot(own_life=120, enemy_life=290, own_start=120, enemy_start=290)
+        bile_hit = FightSnapshot(own_life=100, enemy_life=230, own_start=120, enemy_start=290)
+        self.assertAlmostEqual(self.task.reward(before, bile_hit), 100 * 60 / 290)  # damage taken costs nothing
+        self.assertEqual(self.task.reward(before, before), 0.0)
+        self.assertEqual(self.task.unit_reward(self.ravager, [], [self.roach]), 0.0)
+        self.assertEqual(self.task.terminal_reward("win", [self.ravager]), 100.0)
+
+
 class LeashOrderTest(unittest.TestCase):
     """A roach spawned at (20, 20) with a leash of 8, against a stalker it may chase."""
 
@@ -716,6 +749,17 @@ class DriverCrashTest(unittest.TestCase):
             self.driver.reset(scenario=None)
         self.assertEqual(self.games_started, MAX_GAME_RESTARTS + 1)
         self.assertIsInstance(raised.exception.__cause__, self.ProtocolError)
+
+    def test_every_action_is_allowed_by_default(self):
+        from types import SimpleNamespace
+
+        from tools.rl.env import SC2MicroEnv
+
+        mask = self.driver.action_mask
+        self.assertEqual((mask.shape, bool(mask.all())), ((self.driver.task.action_space.n,), True))
+        env = SimpleNamespace(driver=self.driver)
+        self.assertIs(SC2MicroEnv.action_masks(env), mask)
+        self.assertFalse(self.driver.task.uses_action_masks)
 
     def test_leaves_the_game_between_fights_before_the_loop_limit(self):
         from types import SimpleNamespace

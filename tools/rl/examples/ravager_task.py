@@ -25,6 +25,7 @@ from tools.rl.examples.free_kite_task import (
     TrackingKiteTask,
     _by_distance,
 )
+from tools.rl.task import FightSnapshot
 
 BILE = AbilityId.EFFECT_CORROSIVEBILE
 BILE_RANGE = 9.0
@@ -85,6 +86,27 @@ class RavagerTask(TrackingKiteTask):
             "bile_now": lambda observation: _bile_rule(observation, NOW, smart),
             "bile_lead": lambda observation: _bile_rule(observation, STRAIGHT_LINE, smart),
         }
+
+
+class RavagerBileTask(RavagerTask):
+    """RavagerTask with a reward that counts bile: paid for the share of the enemies' life taken
+    (by attacks and bile alike) instead of for the attack reloading, which made every cast cost
+    reward. Bile actions are masked while bile isn't ready, so exploring doesn't waste picks on
+    them. Trains with sb3-contrib's MaskablePPO."""
+
+    uses_action_masks = True
+    damage_reward_scale = 100.0
+
+    def action_mask(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
+        mask = np.ones(self.action_space.n, dtype=bool)
+        mask[FIRST_BILE:] = BILE in self._abilities.get(unit.tag, set())
+        return mask
+
+    def reward(self, before: FightSnapshot, after: FightSnapshot) -> float:
+        return self.damage_reward_scale * (before.enemy_life - after.enemy_life) / max(after.enemy_start, 1.0)
+
+    def unit_reward(self, unit: Unit, allies: Units, enemies: Units) -> float:
+        return 0.0
 
 
 def _bile_rule(observation: np.ndarray, lead_index: int, otherwise: Callable[[np.ndarray], int]) -> int:
