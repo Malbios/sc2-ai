@@ -50,10 +50,16 @@ def log_path(model: str) -> Path:
     return Path(model).with_suffix(".eval.log")
 
 
+def display_name(model: str) -> str:
+    """The model's path inside the repo (runs often share file names like final.zip)."""
+    path = Path(model)
+    return path.relative_to(REPO_ROOT).as_posix() if path.is_relative_to(REPO_ROOT) else path.as_posix()
+
+
 def report(model: str, exit_code: int) -> str:
     log_file = log_path(model)
     log = log_file.read_text(encoding="utf-8", errors="replace")
-    name = Path(model).name
+    name = display_name(model)
     if exit_code != 0:
         return f"== FAILED {name} (exit code {exit_code}), see {log_file}"
     lines = [f"== {name}"]

@@ -74,6 +74,12 @@ class EvaluateManyTest(unittest.TestCase):
 
         self.assertEqual(crash_count(EVALUATE_LOG), 1)
 
+    def test_models_are_named_by_their_path_in_the_repo(self):
+        from tools.batch.run import REPO_ROOT
+        from tools.rl.evaluate_many import display_name
+
+        self.assertEqual(display_name(str(REPO_ROOT / "models" / "run-a" / "final.zip")), "models/run-a/final.zip")
+
     def test_evaluate_command(self):
         from tools.rl.evaluate_many import evaluate_command
 
