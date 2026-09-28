@@ -134,7 +134,7 @@ class GameDriver:
         slots = (task.group_slots,) if task.group_slots else ()
         self.last_observation = np.zeros(slots + task.observation_space.shape, dtype=np.float32)
         self.action_mask = np.ones(task.action_space.n, dtype=bool)  # for the pending decision
-        self.acting_slots = np.zeros(task.group_slots, dtype=bool)  # group tasks: slots with a living unit
+        self.pending_slot_rewards = np.zeros(task.group_slots, dtype=np.float32)  # group tasks: per slot
 
     # ----- learner side (runs inside the game, on the event loop) -----
 
@@ -206,8 +206,11 @@ class GameDriver:
 
         own = bot.units.tags_in(episode.learner_tags)
         now = FightSnapshot(life(own), enemy_life, episode.start.own_start, episode.start.enemy_start)
-        self.pending_reward += self.task.reward(episode.last, now)
-        self.pending_reward += sum(self.task.unit_reward(unit, own.tags_not_in({unit.tag}), enemies) for unit in own)
+        if self.task.group_slots:
+            self._add_slot_rewards(self.task.share_team_reward(self.task.reward(episode.last, now), own), own, enemies)
+        else:
+            self.pending_reward += self.task.reward(episode.last, now)
+            self.pending_reward += sum(self.task.unit_reward(unit, own.tags_not_in({unit.tag}), enemies) for unit in own)
         for unit in own:
             episode.kite_meter.update(unit, enemies)
         episode.last = now
@@ -234,6 +237,16 @@ class GameDriver:
         else:
             await self._decide_one_by_one(own, enemies)
 
+    def _add_slot_rewards(self, shares: dict[int, float], own: Units, enemies: Units):
+        """Group tasks: each living unit's share of the team reward plus its own unit_reward, into
+        its slot."""
+        self._add_to_slots({unit.tag: shares.get(unit.tag, 0.0) + self.task.unit_reward(unit, own.tags_not_in({unit.tag}), enemies)
+                            for unit in own})
+
+    def _add_to_slots(self, rewards: dict[int, float]):
+        for slot, tag in enumerate(self.episode.slot_tags):
+            self.pending_slot_rewards[slot] += rewards.get(tag, 0.0)
+
     def _decides_now(self, episode: Episode) -> bool:
         """Counts the fight's steps; true on its first step and every learner.decide_every-th after."""
         episode.fight_steps += 1
@@ -255,15 +268,12 @@ class GameDriver:
         """One request for all units: row i of the observation is the unit in slot i, zeros for a
         slot whose unit is dead, and action i is that unit's."""
         observations = np.zeros_like(self.last_observation)
-        acting = np.zeros(self.task.group_slots, dtype=bool)
         slot_units = {}
         for slot, tag in enumerate(self.episode.slot_tags):
             unit = own.find_by_tag(tag)
             if unit is not None:
                 slot_units[slot] = unit
                 observations[slot] = self.task.observe(unit, own.tags_not_in({tag}), enemies)
-                acting[slot] = True
-        self.acting_slots = acting
         actions = await self._ask(("decide", observations))
         if actions is ABORT:
             self.episode = None
@@ -278,7 +288,11 @@ class GameDriver:
 
     def _finish(self, outcome: str, game_loop: int, survivors: Units):
         episode = self.episode
-        self.pending_reward += self.task.terminal_reward(outcome, survivors)
+        if self.task.group_slots:
+            win_reward = self.task.terminal_reward(outcome, survivors)
+            self._add_to_slots({unit.tag: win_reward for unit in survivors})
+        else:
+            self.pending_reward += self.task.terminal_reward(outcome, survivors)
         self.events.put_nowait(("end", {
             "scenario": episode.scenario.name,
             "outcome": outcome,
@@ -370,6 +384,7 @@ class GameDriver:
             elif kind == "decide":
                 if sent:
                     self.pending_reward = 0.0
+                    self.pending_slot_rewards[:] = 0.0
                     self.last_observation = payload
                     return payload
                 self._answer(ABORT)
@@ -383,14 +398,18 @@ class GameDriver:
         self._answer(action)
         kind, payload = self._next_event()
         reward, self.pending_reward = self.pending_reward, 0.0
+        extra = {}
+        if self.task.group_slots:
+            slot_rewards, self.pending_slot_rewards = self.pending_slot_rewards, np.zeros_like(self.pending_slot_rewards)
+            reward, extra = float(slot_rewards.sum()), {"slot_rewards": slot_rewards}
 
         if kind == "decide":
             self.last_observation = payload
-            return payload, reward, False, False, {}
+            return payload, reward, False, False, extra
         if kind == "end":
             timed_out = payload["outcome"] == "timeout"
-            return self.last_observation, reward, not timed_out, timed_out, payload
-        return self.last_observation, reward, False, True, {"outcome": "game_over"}
+            return self.last_observation, reward, not timed_out, timed_out, {**payload, **extra}
+        return self.last_observation, reward, False, True, {"outcome": "game_over", **extra}
 
     def save_replay(self, path: str):
         """Save a replay of the game so far: every fight since the game started. The request

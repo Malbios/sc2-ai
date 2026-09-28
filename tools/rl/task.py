@@ -87,6 +87,11 @@ class MicroTask:
         taken = (before.own_life - after.own_life) / max(after.own_start, 1.0)
         return dealt - taken
 
+    def share_team_reward(self, team: float, units: Units) -> dict[int, float]:
+        """Group tasks: how one game step's team reward is split among the living learner units
+        (by tag). By default every unit gets all of it."""
+        return {unit.tag: team for unit in units}
+
     def unit_reward(self, unit: Unit, allies: Units, enemies: Units) -> float:
         """Extra reward for one learner unit's state after a game step, added to reward()."""
         return 0.0

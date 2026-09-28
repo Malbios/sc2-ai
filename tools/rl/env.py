@@ -51,9 +51,9 @@ class SC2MicroEnv(gym.Env):
 
 class SC2GroupEnv(SC2MicroEnv):
     """Each step is one decision for every unit of the fight: observations are stacked by slot
-    (see MicroTask.group_slots), and the action has one entry per slot. The reward is the team's;
-    info["slot_rewards"] gives it to each slot whose unit was alive to act, and 0 to the others,
-    so each slot can be trained as a stream of its own (see train.SlotVecEnv)."""
+    (see MicroTask.group_slots), and the action has one entry per slot. info["slot_rewards"] has
+    each slot's own reward (see MicroTask.share_team_reward), so each slot can be trained as a
+    stream of its own (see train.SlotVecEnv); the reward is their sum."""
 
     def __init__(self, config: TrainingConfig, rank: int = 0):
         super().__init__(config, rank)
@@ -68,9 +68,7 @@ class SC2GroupEnv(SC2MicroEnv):
         self.action_space = gym.spaces.MultiDiscrete([self.task.action_space.n] * slots)
 
     def step(self, action):
-        acting = self.driver.acting_slots.copy()
-        observation, reward, terminated, truncated, info = self.driver.step(np.asarray(action))
-        return observation, reward, terminated, truncated, {**info, "slot_rewards": reward * acting}
+        return self.driver.step(np.asarray(action))
 
 
 def make_env(config: TrainingConfig, rank: int = 0) -> SC2MicroEnv:

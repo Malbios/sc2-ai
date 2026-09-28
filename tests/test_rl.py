@@ -697,14 +697,34 @@ class GroupDecisionTest(unittest.TestCase):
         self.assertEqual(kind, "decide")
         np.testing.assert_array_equal(observations, [[5, 1], [7, 1], [0, 0]])
         self.assertEqual((first.commands, second.commands), ([1], [2]))
-        np.testing.assert_array_equal(self.driver.acting_slots, [True, True, False])
 
     def test_a_dead_unit_keeps_its_slot_empty(self):
         second = StandInUnit(7, 1, 0)
         self.decide(second)
         np.testing.assert_array_equal(self.asked[0][1], [[0, 0], [7, 0], [0, 0]])
         self.assertEqual(second.commands, [2])
-        np.testing.assert_array_equal(self.driver.acting_slots, [False, True, False])
+
+    def test_rewards_land_in_their_units_slots(self):
+        import asyncio
+
+        units = StandInGroup([StandInUnit(5, 0, 0), StandInUnit(7, 1, 0)])
+        self.driver._add_slot_rewards({5: 1.0, 7: 2.0}, units, enemies=[])
+        self.driver._add_to_slots({7: 10.0, 99: 5.0})  # 99 has no slot
+        np.testing.assert_array_equal(self.driver.pending_slot_rewards, [1.0, 12.0, 0.0])
+
+        self.driver.events = asyncio.Queue()
+        self.driver.game_task = self.driver.loop.create_future()
+        self.addCleanup(self.driver.game_task.cancel)
+        self.driver.events.put_nowait(("decide", np.zeros((3, 2), dtype=np.float32)))
+        self.driver._waiter, self.driver._waiting_for = self.driver.loop.create_future(), "decide"
+        _, reward, _, _, info = self.driver.step(np.array([0, 0, 0]))
+        np.testing.assert_array_equal(info["slot_rewards"], [1.0, 12.0, 0.0])
+        self.assertEqual(reward, 13.0)
+        np.testing.assert_array_equal(self.driver.pending_slot_rewards, [0.0, 0.0, 0.0])
+
+    def test_every_unit_gets_the_team_reward_by_default(self):
+        self.assertEqual(self.driver.task.share_team_reward(2.0, [StandInUnit(5, 0, 0), StandInUnit(7, 1, 0)]),
+                         {5: 2.0, 7: 2.0})
 
 
 class ZerglingSurroundTaskTest(unittest.TestCase):
@@ -772,6 +792,17 @@ class ZerglingSurroundTaskTest(unittest.TestCase):
         self.assertEqual(self.task.terminal_reward("loss", []), 0.0)
         self.task.start_episode()
         self.assertEqual(self.task.terminal_reward("win", [half]), 0.0)
+
+    def test_damage_goes_to_the_zerglings_that_attacked(self):
+        first, second = self.zergling(1, 20.5, 20.5), self.zergling(2, 21.5, 20.5)
+        first.weapon_cooldown = second.weapon_cooldown = 0.0
+        self.assertEqual(self.task.share_team_reward(6.0, [first, second]), {1: 3.0, 2: 3.0})  # nobody seen attacking
+        second.weapon_cooldown = 11.0
+        self.assertEqual(self.task.share_team_reward(6.0, [first, second]), {2: 6.0})
+        second.weapon_cooldown = 8.0  # cooling down, not a new attack
+        self.assertEqual(self.task.share_team_reward(4.0, [first, second]), {1: 2.0, 2: 2.0})
+        self.task.start_episode()
+        self.assertEqual(self.task.share_team_reward(4.0, [second]), {2: 4.0})
 
     def test_group_slots_cover_the_largest_calibration_group(self):
         from pathlib import Path

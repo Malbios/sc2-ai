@@ -3,9 +3,11 @@ closest enemies and allies, so running around the marines to surround them has t
 together (see MicroTask.group_slots).
 
 Paid like RavagerBileTask: for the share of the enemies' life taken, plus the share of the
-group's life left on a win. No penalty for damage taken (it taught the stalker to run away).
+group's life left on a win. No penalty for damage taken (it taught the stalker to run away). The
+damage reward goes to the zerglings that attacked, the win reward to each survivor.
 """
 
+import math
 from collections.abc import Callable
 
 import numpy as np
@@ -58,11 +60,21 @@ class ZerglingSurroundTask(FreeKiteTask):
         super().__init__()
         self._last_positions: dict[tuple[int, int], Point2] = {}
         self._group_size = 0
+        self._last_cooldowns: dict[int, float] = {}
 
     def start_episode(self) -> None:
         super().start_episode()
         self._last_positions.clear()
         self._group_size = 0
+        self._last_cooldowns.clear()
+
+    def share_team_reward(self, team: float, units: Units) -> dict[int, float]:
+        """The damage dealt this game step goes to the zerglings that attacked in it (their weapon
+        cooldown went up since the last step), in equal parts; to all of them if none did."""
+        attackers = [unit for unit in units if unit.weapon_cooldown > self._last_cooldowns.get(unit.tag, math.inf)]
+        self._last_cooldowns = {unit.tag: unit.weapon_cooldown for unit in units}
+        sharing = attackers or list(units)
+        return {unit.tag: team / len(sharing) for unit in sharing}
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """Own weapon cooldown and life; the 4 closest enemies (closest first, zeros when missing):
