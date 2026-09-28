@@ -435,9 +435,13 @@ every zergling decides for itself (group task). Rules, 50 to 100 fights each:
   zerglings stayed away from the marines. The stable models (100 fights per fight) played like
   attack-move: 8v5 97 to 100%, 8v6 23 to 32% (attack-move 28 to 30%), 12v8 80 to 89% (90 to 92%),
   12v9 against standing marines 2 to 4% (4%). Their choices ended up almost fixed, so they most
-  likely learned to attack reliably, not to surround. The one repeated difference: 12v9 against
-  kiting marines, 22 and 26% (and 18 to 25% in the earlier run's best checkpoints) against
-  attack-move's 12% from 50 fights.
+  likely learned to attack reliably, not to surround. The one repeated difference, 12v9 against
+  kiting marines (22 and 26%, and 18 to 25% in the earlier run's best checkpoints, against
+  attack-move's 12% from 50 fights), disappeared when measured again with 200 fights each:
+  attack-move 16%, the two stable models 20% and 16%.
+- **So far, group RL at our scale reached attack-move and no further.** Training can now be kept
+  stable, but only by making the model change slowly and explore little, which leaves it where
+  its attack-biased start put it.
 
 Tooling pitfalls:
 
