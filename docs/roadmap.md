@@ -34,7 +34,8 @@ chasing, leashing and built-in AI enemies. It counts as a win for RL only if it 
       plateaued below every rule; with winnable 1 vs 1 fights mixed in it still didn't learn to
       aim bile (stopped at 500k). Paying for damage and masking bile actions got it level with
       the lead rule against 1 chaser at 500k, but later checkpoints traded that for the
-      leashing fights; no checkpoint beats the best rule anywhere.
+      leashing fights; no checkpoint beats the best rule anywhere. Kept for later: a last test
+      where the lead rule aims and the model only decides when to bile, which enemy, and moves.
 - Roach, parked: the burrow rule already wins everything without detection, and nothing wins
   with an Overseer, so there's no room to beat it (see the design doc's roach lessons)
 - [ ] Hydralisk: focus fire and kiting in groups (needs the group items below)
@@ -43,11 +44,14 @@ chasing, leashing and built-in AI enemies. It counts as a win for RL only if it 
 
 Several learner units already share one model in a fight, each deciding for itself. Missing:
 
-- [ ] Allies in the observation (where they are, their life), so units can react to each other
-- [ ] More than the 2 closest enemies in the observation
+- [x] Allies in the observation (where they are, their life), so units can react to each other
+      (ZerglingSurroundTask: the 4 closest allies)
+- [x] More than the 2 closest enemies in the observation (ZerglingSurroundTask: 4)
 - [ ] A reward that tells which unit did well; today every unit gets the team's reward
-- [ ] Faster training when a fight has many units (each unit's decision is one training step)
-- [ ] Then possibly banelings, mutalisks, zergling surrounds
+- [x] Faster training when a fight has many units: group tasks decide for all units at once, one
+      training stream per unit (`MicroTask.group_slots`)
+- [ ] Zergling surround against marines (now): baselines measured, bar per fight is attack-move
+- [ ] Then possibly banelings, mutalisks
 
 ## 4. The bot itself
 

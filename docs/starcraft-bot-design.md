@@ -381,6 +381,28 @@ What the ravager baselines showed (bile, 2026-09). Bile lands about 1.6 s after 
   yet differ by up to 9 points (leashers 87 vs 78%). With 200 fights, treat gaps under about 5
   points near 5% win rates, and under about 10 points near 50%, as chance.
 
+What the zergling baselines showed (group micro, 2026-09). Zerglings with Metabolic Boost against
+marines without upgrades that stand and shoot ("chase") or step back while reloading ("kite");
+every zergling decides for itself (group task). Rules, 50 to 100 fights each:
+
+| zerglings vs marines | attack-move: wins, life lost (standing / kiting marines) |
+|---|---|
+| 8v3, 12v5, 16v7 | 100%, 28 to 43% |
+| 8v4, 12v6 | 100%, 45 to 50% |
+| 8v5 | 100%, 65 / 68% |
+| 12v7 | 100%, 66 / 59% |
+| 12v8 | 92 / 90%, 85 / 78% |
+| 8v6 | 30 / 28% |
+| 12v9 | 4 / 12% |
+
+- **The step from winning to losing is one or two marines.** Below about 1.5 zerglings per marine
+  attack-move loses most fights; at 2 or more it always wins.
+- **Kiting doesn't help marines against speedlings**, which are faster. It barely changes the
+  results, as in real games without Stimpack.
+- **A flank rule is easy to get wrong.** Running around to the marines' far side before attacking
+  matched attack-move against standing marines but lost 83 to 100% against kiting ones: marines
+  that keep stepping back are never "passed", so the zerglings circle while getting shot.
+
 Tooling pitfalls:
 
 - `debug_show_map` is one game-wide toggle, so only one client may send it; two clients sending it
