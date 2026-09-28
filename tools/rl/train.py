@@ -21,6 +21,7 @@ import numpy as np
 import torch
 from gymnasium import spaces
 from stable_baselines3 import PPO
+from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecMonitor
@@ -40,10 +41,18 @@ def model_class(config: TrainingConfig) -> type[PPO]:
     return PPO
 
 
+def buffer_settings(config: TrainingConfig) -> dict:
+    """Group tasks train only on living units' decisions (see LivingSlotsRolloutBuffer)."""
+    if load_class(config.learner.task).group_slots:
+        return {"rollout_buffer_class": LivingSlotsRolloutBuffer}
+    return {}
+
+
 def new_model(config: TrainingConfig, env) -> PPO:
     """A fresh model. If the task favors an action, it starts out picking that one with the task's
     favored_action_probability (see MicroTask.favored_action)."""
-    model = model_class(config)("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs())
+    model = model_class(config)("MlpPolicy", env, device="cpu", verbose=1, **config.ppo.as_kwargs(),
+                                **buffer_settings(config))
     task = load_class(config.learner.task)
     if task.favored_action is not None:
         bias = favored_action_bias(task.favored_action_probability, env.action_space.n)
@@ -64,7 +73,7 @@ def load_model(path: str | Path, config: TrainingConfig, env) -> PPO:
     exception: it is part of the saved model and can't change."""
     settings = config.ppo.as_kwargs()
     settings.pop("policy_kwargs")
-    return model_class(config).load(path, env=env, device="cpu", **settings)
+    return model_class(config).load(path, env=env, device="cpu", **settings, **buffer_settings(config))
 
 
 INPUT_LAYERS = ("mlp_extractor.policy_net.0.weight", "mlp_extractor.value_net.0.weight")
@@ -117,28 +126,55 @@ class FightStatsCallback(BaseCallback):
         return True
 
 
+class LivingSlotsRolloutBuffer(RolloutBuffer):
+    """SB3's rollout buffer, but training draws only on decisions of living units. Empty and dead
+    slots still get an action (SB3 needs one per env), but their blank observations would
+    otherwise be a large share of all examples, with PPO's bonus for varied choices as their only
+    signal, which pulls the whole model toward random choices. A living unit's observation is
+    never all zeros."""
+
+    def get(self, batch_size: int | None = None):
+        assert self.full, ""
+        if not self.generator_ready:
+            for tensor in ("observations", "actions", "values", "log_probs", "advantages", "returns"):
+                self.__dict__[tensor] = self.swap_and_flatten(self.__dict__[tensor])
+            self.generator_ready = True
+        living = np.flatnonzero(self.observations.reshape(len(self.observations), -1).any(axis=1))
+        indices = np.random.permutation(living)
+        batch_size = batch_size or len(indices)
+        for start in range(0, len(indices), batch_size):
+            yield self._get_samples(indices[start:start + batch_size])
+
+
 class SlotVecEnv(VecEnv):
     """Presents each slot of each group env (SC2GroupEnv) to SB3 as an env of its own, so every
-    unit's decisions form their own stream with the team reward (independent PPO with one shared
-    network). A fight ends for all its slots at once. The fight's info (outcome, damage, ...)
-    goes to slot 0 only, so every fight is counted once."""
+    unit's decisions form their own stream with its own reward (independent PPO with one shared
+    network). A fight ends for all its slots at once; a unit's stream also ends when it dies, so
+    its last decision isn't followed by an estimate of a future it doesn't have. The fight's info
+    (outcome, damage, ...) goes to slot 0 only, so every fight is counted once."""
 
     def __init__(self, games: VecEnv, slots: int):
         self.games, self.slots = games, slots
         per_slot = spaces.Box(-np.inf, np.inf, shape=games.observation_space.shape[1:], dtype=np.float32)
         super().__init__(games.num_envs * slots, per_slot, spaces.Discrete(int(games.action_space.nvec[0])))
+        self._alive = np.zeros((games.num_envs, slots), dtype=bool)
 
     def reset(self) -> np.ndarray:
-        return self._flat(self.games.reset())
+        observations = self.games.reset()
+        self._alive = _living(observations)
+        return self._flat(observations)
 
     def step_async(self, actions: np.ndarray) -> None:
         self.games.step_async(np.asarray(actions).reshape(self.games.num_envs, self.slots))
 
     def step_wait(self):
-        observations, _, dones, game_infos = self.games.step_wait()
+        observations, _, fight_over, game_infos = self.games.step_wait()
         rewards = np.stack([info["slot_rewards"] for info in game_infos]).astype(np.float32)
+        alive = _living(observations)
+        died = self._alive & ~alive & ~fight_over[:, None]
+        self._alive = alive
         infos = []
-        for info, done in zip(game_infos, dones):
+        for info, done in zip(game_infos, fight_over):
             for slot in range(self.slots):
                 slot_info = {}
                 if done:
@@ -148,7 +184,8 @@ class SlotVecEnv(VecEnv):
                         slot_info.update({key: value for key, value in info.items()
                                           if key not in ("slot_rewards", "terminal_observation")})
                 infos.append(slot_info)
-        return self._flat(observations), rewards.reshape(-1), np.repeat(dones, self.slots), infos
+        dones = (fight_over[:, None] | died).reshape(-1)
+        return self._flat(observations), rewards.reshape(-1), dones, infos
 
     def close(self) -> None:
         self.games.close()
@@ -173,6 +210,11 @@ class SlotVecEnv(VecEnv):
         if indices is None:
             return list(range(self.num_envs))
         return [indices] if isinstance(indices, int) else list(indices)
+
+
+def _living(observations: np.ndarray) -> np.ndarray:
+    """Per game and slot: whether the slot holds a living unit (its observation isn't blank)."""
+    return observations.reshape(observations.shape[0], observations.shape[1], -1).any(axis=2)
 
 
 def make_vec_env(config: TrainingConfig, n_envs: int):

@@ -163,6 +163,37 @@ class SlotVecEnvTest(unittest.TestCase):
         self.assertEqual((infos[3]["outcome"], infos[3]["scenario"]), ("timeout", "s"))
         self.assertNotIn("outcome", infos[4])
 
+    def test_a_dying_unit_ends_only_its_own_stream(self):
+        self.venv.reset()
+        observations, _, fight_over, infos = self.games.step_result
+        observations = observations.copy()
+        observations[0, 1] = 0.0  # game 0, slot 1 died; game 1's fight ended anyway
+        self.games.step_result = (observations, _, fight_over, infos)
+        _, _, dones, slot_infos = self.venv.step_wait()
+        np.testing.assert_array_equal(dones, [False, True, False, True, True, True])
+        self.assertEqual(slot_infos[1], {})  # a death, not a cut-off fight: no future to estimate
+
+
+@unittest.skipUnless(HAS_SB3, "needs Stable-Baselines3")
+class LivingSlotsRolloutBufferTest(unittest.TestCase):
+    def test_trains_only_on_living_units(self):
+        import gymnasium as gym
+        import torch
+
+        from tools.rl.train import LivingSlotsRolloutBuffer
+
+        buffer = LivingSlotsRolloutBuffer(3, gym.spaces.Box(-np.inf, np.inf, shape=(2,), dtype=np.float32),
+                                          gym.spaces.Discrete(4), n_envs=2)
+        steps = [np.array([[1.0, 1.0], [0.0, 0.0]]), np.array([[2.0, 2.0], [3.0, 3.0]]), np.array([[0.0, 0.0], [4.0, 4.0]])]
+        for step, observations in enumerate(steps):
+            buffer.add(observations, np.array([[0], [1]]), np.zeros(2), np.array([step == 0] * 2),
+                       torch.zeros(2), torch.zeros(2))
+        buffer.compute_returns_and_advantage(torch.zeros(2), np.zeros(2))
+        batches = list(buffer.get(batch_size=3))
+        seen = sorted(float(row[0]) for batch in batches for row in batch.observations)
+        self.assertEqual(seen, [1.0, 2.0, 3.0, 4.0])
+        self.assertEqual([len(batch.observations) for batch in batches], [3, 1])
+
 
 if __name__ == "__main__":
     unittest.main()
