@@ -76,7 +76,12 @@ replays open in sc2-observer.
 python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --random            # baseline
 python -m tools.rl.train    --config tools/rl/configs/stalker_vs_roaches.yaml --timesteps 200000 --out models/stalker
 python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --model models/stalker/final.zip
+python -m tools.rl.evaluate_many --config tools/rl/configs/stalker_vs_roaches.yaml --episodes 200 models/stalker/checkpoints/*.zip
 ```
+
+- `evaluate_many` evaluates several models side by side (`--parallel`, default 4), each with its
+  full output in `<model>.eval.log`. 4 at a time fill 8 cores like training does, so run it after
+  training, not during.
 
 - `--timesteps` counts decisions, not fights. A fight is roughly 50 to 300 decisions per unit.
 - `--n-envs` sets how many games train in parallel (default 4). Measured on 8 cores: 4 games with a

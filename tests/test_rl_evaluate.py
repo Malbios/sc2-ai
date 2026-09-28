@@ -42,5 +42,46 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(tables[0].splitlines()[2].split(), ["all", "1", "100%", "100%", "-", "-"])
 
 
+EVALUATE_LOG = """\
+2026-09-28 10:00:00.000 | INFO     | sc2.main:_host_game:228 - Status.launched
+ravager_1v1_chase 1/2: win
+SC2 game crashed, restarting on the next reset:
+ravager_1v1_chase 2/2: win
+
+scenario           fights   win  loss   tie  dealt  taken  seconds  kite
+ravager_1v1_chase       2  100%    0%    0%   100%    50%     10.4   43%
+
+2026-09-28 10:01:00.000 | INFO     | sc2.sc2process:_close_connection:216 - Closing connection
+"""
+
+
+class EvaluateManyTest(unittest.TestCase):
+    def test_summary_table_is_cut_from_the_log(self):
+        from tools.rl.evaluate_many import summary_table
+
+        self.assertEqual(summary_table(EVALUATE_LOG).splitlines(), [
+            "scenario           fights   win  loss   tie  dealt  taken  seconds  kite",
+            "ravager_1v1_chase       2  100%    0%    0%   100%    50%     10.4   43%",
+        ])
+
+    def test_log_without_a_table(self):
+        from tools.rl.evaluate_many import summary_table
+
+        self.assertEqual(summary_table("ravager_1v1_chase 1/2: win\n"), "")
+
+    def test_crashes_are_counted(self):
+        from tools.rl.evaluate_many import crash_count
+
+        self.assertEqual(crash_count(EVALUATE_LOG), 1)
+
+    def test_evaluate_command(self):
+        from tools.rl.evaluate_many import evaluate_command
+
+        command = evaluate_command("c.yaml", "m.zip", 200, "builtin")
+        self.assertEqual(command[1:], ["-m", "tools.rl.evaluate", "--config", "c.yaml", "--model", "m.zip",
+                                       "--episodes", "200", "--enemy-mode", "builtin"])
+        self.assertNotIn("--enemy-mode", evaluate_command("c.yaml", "m.zip", 200, None))
+
+
 if __name__ == "__main__":
     unittest.main()
