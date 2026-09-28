@@ -126,7 +126,9 @@ class GameDriver:
         self.pending_reward = 0.0
         self._waiter: asyncio.Future | None = None
         self._waiting_for: str | None = None  # "ready" or "decide" once the env has seen the request
-        self._zero_obs = np.zeros(task.observation_space.shape, dtype=np.float32)
+        # Returned when a fight ends. PPO estimates the rest of a cut-off fight from it, so it must
+        # be a real situation, not a blank one.
+        self.last_observation = np.zeros(task.observation_space.shape, dtype=np.float32)
         self.action_mask = np.ones(task.action_space.n, dtype=bool)  # for the pending decision
 
     # ----- learner side (runs inside the game, on the event loop) -----
@@ -329,6 +331,7 @@ class GameDriver:
             elif kind == "decide":
                 if sent:
                     self.pending_reward = 0.0
+                    self.last_observation = payload
                     return payload
                 self._answer(ABORT)
             # "end" events of an episode that was already over are skipped
@@ -342,11 +345,12 @@ class GameDriver:
         reward, self.pending_reward = self.pending_reward, 0.0
 
         if kind == "decide":
+            self.last_observation = payload
             return payload, reward, False, False, {}
         if kind == "end":
             timed_out = payload["outcome"] == "timeout"
-            return self._zero_obs, reward, not timed_out, timed_out, payload
-        return self._zero_obs, reward, False, True, {"outcome": "game_over"}
+            return self.last_observation, reward, not timed_out, timed_out, payload
+        return self.last_observation, reward, False, True, {"outcome": "game_over"}
 
     def save_replay(self, path: str):
         """Save a replay of the game so far: every fight since the game started. The request

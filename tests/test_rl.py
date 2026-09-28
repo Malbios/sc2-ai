@@ -3,6 +3,8 @@ import random
 import unittest
 from collections import Counter
 
+import numpy as np
+
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
@@ -736,10 +738,28 @@ class DriverCrashTest(unittest.TestCase):
 
     def test_crash_during_a_fight_ends_it_as_game_over(self):
         self.start_crashing_game()
+        seen = np.full(self.driver.last_observation.shape, 0.5, dtype=np.float32)
+        self.driver.last_observation = seen
         self.driver._waiter, self.driver._waiting_for = self.driver.loop.create_future(), "decide"
-        _, _, terminated, truncated, info = self.driver.step(0)
+        observation, _, terminated, truncated, info = self.driver.step(0)
         self.assertEqual((terminated, truncated, info), (False, True, {"outcome": "game_over"}))
+        self.assertIs(observation, seen)
         self.assertIn("SC2 game crashed", self.stderr.getvalue())
+
+    def test_timeout_ends_with_the_last_real_observation(self):
+        seen = np.full(self.driver.last_observation.shape, 0.5, dtype=np.float32)
+        self.driver.events = self.asyncio.Queue()
+        self.driver.game_task = self.driver.loop.create_future()
+        self.addCleanup(self.driver.game_task.cancel)
+        self.driver.events.put_nowait(("decide", seen))
+        self.driver.events.put_nowait(("end", {"outcome": "timeout"}))
+
+        self.driver._waiter, self.driver._waiting_for = self.driver.loop.create_future(), "decide"
+        self.assertIs(self.driver.step(0)[0], seen)
+        self.driver._waiter = self.driver.loop.create_future()
+        observation, _, terminated, truncated, _ = self.driver.step(0)
+        self.assertEqual((terminated, truncated), (False, True))
+        self.assertIs(observation, seen)
 
     def test_reset_restarts_crashed_games_then_gives_up(self):
         from tools.rl.driver import MAX_GAME_RESTARTS

@@ -394,6 +394,8 @@ Tooling pitfalls:
   planned restart is marked as such. Unplanned crashes must still end the fight and restart the
   game (raising instead hung the whole training). Stop the two clients of a game together, and
   cancel each only once: python-sc2 exits the process when a request is cancelled twice.
+- A fight cut off by the time limit must end with a real observation (the last one), not a blank
+  one: PPO estimates the rest of the fight from it, and a blank one made that estimate arbitrary.
 - python-sc2 details: count enemies as dead only via `state.dead_units`, and save
   replays only while the learner is waiting for its next step.
 
