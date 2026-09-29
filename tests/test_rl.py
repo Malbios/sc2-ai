@@ -914,7 +914,7 @@ class RoachGroupTaskTest(unittest.TestCase):
         return self.task.baseline_policies()["smart"](self.task.observe(self.roach, [], enemies))
 
     def test_observation(self):
-        from tools.rl.examples.roach_group_task import FIRST_ALLY, FIRST_ENEMY, INPUTS
+        from tools.rl.examples.group_fight_task import FIRST_ALLY, FIRST_ENEMY, INPUTS
 
         observation = self.task.observe(self.roach, [], [self.marauder, self.marine]).astype(float).round(3).tolist()
         self.assertEqual(len(observation), INPUTS)
@@ -924,7 +924,7 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.assertEqual(observation[FIRST_ENEMY + 16:FIRST_ALLY], [0.0] * 16)
 
     def test_attacks_pick_their_target_among_the_enemies_in_range(self):
-        from tools.rl.examples.roach_group_task import ATTACK_CLOSEST, ATTACK_DANGEROUS, ATTACK_WEAKEST
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, ATTACK_DANGEROUS, ATTACK_WEAKEST
 
         enemies = [self.far_marine, self.marauder, self.marine]
         self.assertIs(self.target(ATTACK_CLOSEST, enemies), self.marauder)
@@ -934,7 +934,7 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.assertIs(self.target(ATTACK_DANGEROUS, enemies), self.marauder)  # 20 / 50
 
     def test_ties_keep_the_current_target_then_go_to_the_closest(self):
-        from tools.rl.examples.roach_group_task import ATTACK_DANGEROUS, ATTACK_WEAKEST
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS, ATTACK_WEAKEST
 
         farther = StandInFighter(13, 16.0, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)  # 4.5 west
         closer = StandInFighter(14, 20.5, 16.5, health=45, health_max=45, dps=10.0, ground_range=5)  # 4 south
@@ -945,13 +945,13 @@ class RoachGroupTaskTest(unittest.TestCase):
             self.assertIs(self.target(action, [farther, closer]), farther)
 
     def test_attacks_fall_back_to_the_closest_with_nobody_in_range(self):
-        from tools.rl.examples.roach_group_task import ATTACK_DANGEROUS, ATTACK_WEAKEST
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS, ATTACK_WEAKEST
 
         self.assertIs(self.target(ATTACK_WEAKEST, [self.far_marine]), self.far_marine)
         self.assertIs(self.target(ATTACK_DANGEROUS, [self.far_marine]), self.far_marine)
 
     def test_smart_pulls_back_only_when_hurt_and_close(self):
-        from tools.rl.examples.roach_group_task import ATTACK_DANGEROUS, FIRST_MOVE
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS, FIRST_MOVE
 
         west = FIRST_MOVE + 4
         self.assertEqual(self.smart([self.marine]), ATTACK_DANGEROUS)
