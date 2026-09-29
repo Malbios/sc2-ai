@@ -64,6 +64,10 @@ Several learner units already share one model in a fight, each deciding for itse
       scaling makes the collapse worse, and so does a variety bonus on top of the stable
       settings (ent_coef 0.003 and 0.01, two seeds each).
 - [ ] Then possibly banelings, mutalisks
+- [x] Headroom check for training in a fast simulator instead of SC2: roaches against marines
+      and marauders (RoachGroupTask). No rule beat attack-move (target choice changed nothing,
+      pulling back without a heal lost everything), so this fight has no room for micro and no
+      simulator was built. SMAX lacks roaches, armor and bonus damage (design doc).
 
 ## 4. The bot itself
 

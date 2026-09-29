@@ -457,6 +457,36 @@ every zergling decides for itself (group task). Rules, 50 to 100 fights each:
   stable, but only by making the model change slowly and explore little, which leaves it where
   its attack-biased start put it.
 
+The simulator idea, and its headroom check (2026-09). Training in a fast simplified simulator
+instead of SC2 would give RL the fights it lacked, but only pays off in a fight where rules leave
+room. The check: roaches against marines and marauders without upgrades (a scripted enemy
+attacking the closest), every roach deciding for itself (RoachGroupTask), rules that differ only
+in their micro. At equal cost attack-move won every fight, so the fights have more bio. 200
+fights each:
+
+| rule | 10 roaches vs 12 marines + 4 marauders | 12 vs 14 + 5 |
+|---|---|---|
+| attack: shoot the closest | 36% | 9% |
+| focus: shoot the weakest in range | 38% | 7% |
+| threat: shoot the most damage per life left in range | 38% | 12% |
+| smart: threat, and pull back below 35% life | 0% | 0% |
+
+- **Target choice changed nothing.** All three attack rules are within noise of each other. In a
+  ranged fight on open ground between units this close in range and speed, numbers decide.
+- **Pulling back without a heal loses the fight.** A pulled-back roach doesn't heal (no burrow)
+  and the chasing bio stays close, so it keeps running instead of shooting (dealt 43 to 46%
+  instead of 75 to 88%).
+- **So this fight has no headroom for micro**, and a simulator for it isn't worth building.
+- **A first run of the focus and threat rules lost everything because of a bug:** unhurt marines
+  tie on life, and the enemies come in a different order each step, so the roaches switched
+  targets every decision and restarted their attack each time. Target picks now keep the current
+  target on ties. Rules that pick targets need this, and so would the bot's.
+- **SMAX (JaxMARL) isn't usable as it is:** no roach, no armor or bonus damage (a marauder hits
+  a roach for 10 instead of 19), instant attacks, and marines doing 9 damage instead of 6. It has
+  its own JAX interface, not Gymnasium, and its speed figures are GPU only. SMAClite models armor
+  and bonus damage and has a Gymnasium interface, but isn't faster than SC2. The one transfer
+  test found (SMAClite to SMAC) kept roughly half the performance or less.
+
 Tooling pitfalls:
 
 - `debug_show_map` is one game-wide toggle, so only one client may send it; two clients sending it
