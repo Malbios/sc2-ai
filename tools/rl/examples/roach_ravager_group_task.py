@@ -36,7 +36,7 @@ IS_RAVAGER, BILE_READY = INPUTS, INPUTS + 1
 # The bile actions: whom to bile (the closest, or the most dangerous within bile range) times the
 # lead (0: where it is now, 1: where it will be if it keeps moving straight).
 BILE_TARGETS = ("closest", "dangerous")
-BILE_LEADS = (0.0, 0.25, 0.5, 0.75, 1.0, 1.5)
+BILE_LEADS = (0.0, 0.125, 0.25, 0.5, 0.75, 1.0, 1.5)
 # The clump condition: other seen enemies within this distance of the bile's target.
 CLUMP_RADIUS = 2.0
 CLUMP_SIZES = (0, 1, 2)
