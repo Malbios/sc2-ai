@@ -487,6 +487,57 @@ fights each:
   and bonus damage and has a Gymnasium interface, but isn't faster than SC2. The one transfer
   test found (SMAClite to SMAC) kept roughly half the performance or less.
 
+The headroom survey (2026-09). Four group fights, scripted rules only, to find one where micro
+matters and rules are imperfect before any more RL. Bar, fixed beforehand, on sizes where
+attack-move wins 15 to 70% (calibrated at 50 fights), 200 fights per rule: (1) the best rule
+beats attack-move by 15 points of wins; (2) variants of that rule (one parameter changed)
+spread by 15 points. Enemies without upgrades, attacking the closest. Wins, 200 fights each:
+
+| mutalisks (8) vs marines (14) | standing | kiting |
+|---|---|---|
+| attack | 35% | 51% |
+| kite: back off while cooling with a marine within 4.5 | 56% | 52% |
+| kite within 6 / 8 | 4 / 0% | 2 / 0% |
+| regroup (radius 1, 1.5, 3), then kite within 6 | 3 to 5% | 2% |
+
+| hydralisks (8, speed and range) vs zealots (8) | wins | life lost |
+|---|---|---|
+| attack | 22% | 96% |
+| kite within 2 / 3 / 5 | 70 / 96 / 100% | 85 / 70 / 50% |
+| kite within 2 / 3 / 5, shooting the most dangerous | 100% each | 70 / 63 / 45% |
+
+| roaches (6) and ravagers (2) vs 12 marines and 3 marauders | standing in bile | dodging |
+|---|---|---|
+| attack (no bile) | 7% | 10% |
+| bile the closest, lead 1 (closest / most dangerous attack) | 58 / 64% | 54 / 54% |
+| bile the most dangerous in range, lead 1 | 52 / 57% | 56 / 56% |
+| bile the closest, lead 0.5 | 80 / 82% | 73 / 71% |
+| bile the closest, lead 1.5 | 61 / 60% | 51 / 56% |
+
+| burrow roaches vs bio with scans (1 or 2) | 10v16 1 / 2 scans | 12v19 1 / 2 scans |
+|---|---|---|
+| attack / threat | 30 / 34%, 38 / 30% | 12 / 10%, 14 / 14% |
+| burrow below 40%, up above 70% | 14 / 2% | 3 / 0% |
+| careful burrow (up when detected) 40/70, 30/60, 50/80 | 57, 56, 49% / 36% each | 20, 20, 16% / 10 to 15% |
+
+- **Mutalisks: kiting only helps at short range, and only against standing marines.** Backing
+  off earlier wastes shots against a longer-ranged enemy. Both bars pass as written, but the
+  spread comes from worse variants; whether anything beats 4.5 is unmeasured.
+- **Hydralisks: rule territory.** Kiting takes attack-move's 22% to 100%; the best rules win
+  every fight, so only life lost is left to improve.
+- **Burrow with scans: rule territory.** Careful burrowing adds 27 points with one scan and
+  nothing with two, and its thresholds barely matter (bar 2 fails). Burrowing without watching
+  for scans loses badly. 38 to 81% of careful-burrow fights ran out the 60 s clock.
+- **Roaches with ravagers: passes both bars, and the rules aren't at the ceiling.** Bile adds
+  45 to 75 points; the lead alone moves wins by 20 points (0.5 best of the three), and whom to
+  bile matters too. The best rule wins 82% / 71%, so there is room above it. This is the first
+  fight that qualifies as an RL target; the bar for a model is the tuned rule, not these.
+- Calibration notes: bio without stim beats roaches with ravagers at equal cost (ravagers are
+  poor value without bile), and the 4th marauder flips the fight (10 marines + 3 marauders: 98%,
+  + 4: 0%). The scan enemy first never scanned: burrowed roaches drop out of the enemy's unit
+  list (the few still listed have type ROACHBURROWED and is_burrowed false), so it now scans
+  where a learner unit vanished without dying.
+
 Tooling pitfalls:
 
 - `debug_show_map` is one game-wide toggle, so only one client may send it; two clients sending it
