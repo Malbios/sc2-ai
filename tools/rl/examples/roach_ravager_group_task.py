@@ -1,4 +1,5 @@
-"""Roaches with ravagers against marines and marauders (GroupFightTask), for the headroom survey.
+"""Roaches with ravagers against marines and marauders (GroupFightTask): the fight the headroom
+survey picked as the RL target.
 
 Ravagers can also cast corrosive bile (60 damage in a small circle, landing about 1.6 s after
 the cast), which enemies can step out of. Bile makes the enemy move and breaks its formation,
@@ -14,10 +15,13 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from tools.rl.examples.free_kite_task import _by_distance
+from tools.rl.examples.free_kite_task import DISTANCE_SCALE, _by_distance
 from tools.rl.examples.group_fight_task import (
     ATTACK_CLOSEST,
     ATTACK_DANGEROUS,
+    ENEMY_INPUTS,
+    FIRST_ALLY,
+    FIRST_ENEMY,
     FIRST_EXTRA_ACTION,
     INPUTS,
     GroupFightTask,
@@ -29,16 +33,22 @@ from tools.rl.examples.ravager_task import BILE, BILE_FLIGHT_SECONDS, BILE_RANGE
 
 IS_RAVAGER, BILE_READY = INPUTS, INPUTS + 1
 
-# The bile actions: whom to bile (the closest, or the most dangerous within bile range) and the
+# The bile actions: whom to bile (the closest, or the most dangerous within bile range) times the
 # lead (0: where it is now, 1: where it will be if it keeps moving straight).
-BILES = (("closest", 1.0), ("dangerous", 1.0), ("closest", 0.5), ("closest", 1.5))
-BILE_CLOSEST, BILE_DANGEROUS, BILE_CLOSEST_LEAD_HALF, BILE_CLOSEST_LEAD_ONE_AND_HALF = (
-    FIRST_EXTRA_ACTION + index for index in range(len(BILES)))
+BILE_TARGETS = ("closest", "dangerous")
+BILE_LEADS = (0.0, 0.25, 0.5, 0.75, 1.0, 1.5)
+# The clump condition: other seen enemies within this distance of the bile's target.
+CLUMP_RADIUS = 2.0
+CLUMP_SIZES = (0, 1, 2)
+
+
+def bile_action(target: str, lead: float) -> int:
+    return FIRST_EXTRA_ACTION + BILE_TARGETS.index(target) * len(BILE_LEADS) + BILE_LEADS.index(lead)
 
 
 class RoachRavagerGroupTask(GroupFightTask):
     observation_space = spaces.Box(-np.inf, np.inf, shape=(BILE_READY + 1,), dtype=np.float32)
-    action_space = spaces.Discrete(FIRST_EXTRA_ACTION + len(BILES))
+    action_space = spaces.Discrete(FIRST_EXTRA_ACTION + len(BILE_TARGETS) * len(BILE_LEADS))
     wants_abilities = True
     cooldown_scale = 32.0  # a roach's; a ravager's is 26
 
@@ -66,7 +76,8 @@ class RoachRavagerGroupTask(GroupFightTask):
         elif unit.type_id != UnitTypeId.RAVAGER:
             super().apply(unit, ATTACK_CLOSEST, allies, enemies)
         else:
-            whom, lead = BILES[action - FIRST_EXTRA_ACTION]
+            target_index, lead_index = divmod(action - FIRST_EXTRA_ACTION, len(BILE_LEADS))
+            whom, lead = BILE_TARGETS[target_index], BILE_LEADS[lead_index]
             unit(BILE, self.bile_point(unit, self._bile_target(unit, whom, enemies), lead))
 
     def bile_point(self, unit: Unit, target: Unit, lead: float) -> Point2:
@@ -82,18 +93,29 @@ class RoachRavagerGroupTask(GroupFightTask):
         return by_distance[0]
 
     def baseline_policies(self) -> dict[str, Rule]:
+        """attack, and for every bile target, lead and clump size k: bile_{target}_lead_{lead}
+        (k = 0) or bile_{target}_lead_{lead}_clump_{k}, shooting the most dangerous otherwise."""
         rules = {"attack": lambda observation: ATTACK_CLOSEST}
-        biles = {"": BILE_CLOSEST, "_dangerous": BILE_DANGEROUS,
-                 "_lead_0.5": BILE_CLOSEST_LEAD_HALF, "_lead_1.5": BILE_CLOSEST_LEAD_ONE_AND_HALF}
-        for suffix, bile in biles.items():
-            rules[f"bile{suffix}"] = lambda observation, b=bile: bile_rule(observation, b, ATTACK_CLOSEST)
-            rules[f"bile_threat{suffix}"] = lambda observation, b=bile: bile_rule(observation, b, ATTACK_DANGEROUS)
+        for target in BILE_TARGETS:
+            for lead in BILE_LEADS:
+                for clump in CLUMP_SIZES:
+                    name = f"bile_{target}_lead_{lead:g}" + (f"_clump_{clump}" if clump else "")
+                    rules[name] = lambda observation, b=bile_action(target, lead), k=clump: bile_rule(
+                        observation, b, ATTACK_DANGEROUS, k)
         return rules
 
 
-def bile_rule(observation: np.ndarray, bile: int, otherwise: int) -> int:
-    """`bile` when bile is ready and the closest enemy is within bile range, else `otherwise`.
-    Roaches never have bile ready."""
-    if observation[BILE_READY] and closest_enemy_distance(observation) <= BILE_RANGE:
-        return bile
-    return otherwise
+def bile_rule(observation: np.ndarray, bile: int, otherwise: int, clump: int = 0) -> int:
+    """`bile` when bile is ready, the closest enemy is within bile range and has at least `clump`
+    other seen enemies within CLUMP_RADIUS; else `otherwise`. Roaches never have bile ready."""
+    ready = observation[BILE_READY] and closest_enemy_distance(observation) <= BILE_RANGE
+    return bile if ready and clump_size(observation) >= clump else otherwise
+
+
+def clump_size(observation: np.ndarray) -> int:
+    """How many other seen enemies are within CLUMP_RADIUS of the closest one."""
+    positions = [Point2(observation[start + 1:start + 3]) * DISTANCE_SCALE
+                 for start in range(FIRST_ENEMY, FIRST_ALLY, ENEMY_INPUTS) if observation[start]]
+    if not positions:
+        return 0
+    return sum(1 for position in positions[1:] if position.distance_to(positions[0]) <= CLUMP_RADIUS)

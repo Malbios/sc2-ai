@@ -1177,36 +1177,52 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         from sc2.ids.ability_id import AbilityId
 
         from tools.rl.examples.ravager_task import BILE_FLIGHT_SECONDS, DECISION_SECONDS
-        from tools.rl.examples.roach_ravager_group_task import BILE_CLOSEST, BILE_DANGEROUS, BILE_CLOSEST_LEAD_HALF
+        from tools.rl.examples.roach_ravager_group_task import BILE_LEADS, BILE_TARGETS, bile_action
 
+        self.assertEqual(self.task.action_space.n, bile_action(BILE_TARGETS[-1], BILE_LEADS[-1]) + 1)
         self.task.observe(self.ravager, [], self.enemies)
         self.marine.position = Point2((25.1, 20.5))  # moved 0.4 toward the ravager
         self.task.observe(self.ravager, [], self.enemies)
         self.marauder.health = 50  # 20 / 50 now beats the marine's 10 / 45
-        for action in (BILE_CLOSEST, BILE_CLOSEST_LEAD_HALF, BILE_DANGEROUS):
+        for action in (bile_action("closest", 1.0), bile_action("closest", 0.25), bile_action("dangerous", 0.5)):
             self.task.apply(self.ravager, action, [], self.enemies)
-        (_, ability, led), (_, _, half), (_, _, dangerous) = self.ravager.commands
+        (_, ability, led), (_, _, quarter), (_, _, dangerous) = self.ravager.commands
         self.assertEqual(ability, AbilityId.EFFECT_CORROSIVEBILE)
         self.assertAlmostEqual(led.x, 25.1 - 0.4 * BILE_FLIGHT_SECONDS / DECISION_SECONDS, places=4)
-        self.assertAlmostEqual(half.x, 25.1 - 0.5 * 0.4 * BILE_FLIGHT_SECONDS / DECISION_SECONDS, places=4)
-        self.assertEqual(dangerous, Point2((20.5, 28.5)))
-        self.task.apply(self.roach, BILE_CLOSEST, [], self.enemies)
+        self.assertAlmostEqual(quarter.x, 25.1 - 0.25 * 0.4 * BILE_FLIGHT_SECONDS / DECISION_SECONDS, places=4)
+        self.assertEqual(dangerous, Point2((20.5, 28.5)))  # it didn't move
+        self.task.apply(self.roach, bile_action("closest", 1.0), [], self.enemies)
         self.assertEqual(self.roach.commands, [("attack", self.marine)])
 
     def test_bile_rules(self):
-        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, ATTACK_DANGEROUS
-        from tools.rl.examples.roach_ravager_group_task import BILE_CLOSEST, BILE_DANGEROUS
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS
+        from tools.rl.examples.roach_ravager_group_task import bile_action
 
         rules = self.task.baseline_policies()
-        self.assertEqual(rules["bile"](self.task.observe(self.ravager, [], self.enemies)), ATTACK_CLOSEST)  # not ready
+        self.assertIn("bile_dangerous_lead_1.5_clump_2", rules)
+        lead_half = rules["bile_closest_lead_0.5"]
+        self.assertEqual(lead_half(self.task.observe(self.ravager, [], self.enemies)), ATTACK_DANGEROUS)  # not ready
         self.ready()
         observation = self.task.observe(self.ravager, [], self.enemies)
-        self.assertEqual(rules["bile"](observation), BILE_CLOSEST)
-        self.assertEqual(rules["bile_threat_dangerous"](observation), BILE_DANGEROUS)
-        self.assertEqual(rules["bile_threat"](self.task.observe(self.roach, [], self.enemies)), ATTACK_DANGEROUS)
+        self.assertEqual(lead_half(observation), bile_action("closest", 0.5))
+        self.assertEqual(rules["bile_dangerous_lead_0"](observation), bile_action("dangerous", 0.0))
+        self.assertEqual(lead_half(self.task.observe(self.roach, [], self.enemies)), ATTACK_DANGEROUS)
         self.marine.position = Point2((30.5, 20.5))
         self.marauder.position = Point2((20.5, 30.5))  # both 10 away, out of bile range
-        self.assertEqual(rules["bile"](self.task.observe(self.ravager, [], self.enemies)), ATTACK_CLOSEST)
+        self.assertEqual(lead_half(self.task.observe(self.ravager, [], self.enemies)), ATTACK_DANGEROUS)
+
+    def test_clump_condition(self):
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS
+        from tools.rl.examples.roach_ravager_group_task import bile_action
+
+        self.ready()
+        rules = self.task.baseline_policies()
+        observation = self.task.observe(self.ravager, [], self.enemies)  # the marauder is 8.6 from the marine
+        self.assertEqual(rules["bile_closest_lead_0.5_clump_1"](observation), ATTACK_DANGEROUS)
+        beside = StandInFighter(12, 25.5, 22.0, health=45, health_max=45, dps=10.0, ground_range=5)  # 1.5 from it
+        observation = self.task.observe(self.ravager, [], self.enemies + [beside])
+        self.assertEqual(rules["bile_closest_lead_0.5_clump_1"](observation), bile_action("closest", 0.5))
+        self.assertEqual(rules["bile_closest_lead_0.5_clump_2"](observation), ATTACK_DANGEROUS)
 
     def test_group_slots_cover_the_largest_calibration_group(self):
         from pathlib import Path
