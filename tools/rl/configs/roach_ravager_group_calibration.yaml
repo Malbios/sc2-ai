@@ -1,6 +1,7 @@
 # Roaches with ravagers against marines and marauders without upgrades that chase, at three
 # sizes. At about equal cost (4+2 vs 9+3, 6+2 vs 12+4, 7+3 vs 14+5) attack-move lost every fight:
-# without bile, ravagers are poor value. Attack-move never biles, so whether the enemy dodges bile
+# without bile, ravagers are poor value. 6+2 against 8 to 10 marines and 3 marauders won 98 to
+# 100%, so these sizes are in between. Attack-move never biles, so whether the enemy dodges bile
 # can't change its result; the measurement (roach_ravager_group.yaml) adds dodging. For measuring
 # the attack rule first, to pick sizes where attack-move neither always wins nor always loses:
 #
@@ -18,21 +19,21 @@ enemy:
   race: Terran
 
 scenarios:
-  - name: rr_8v11
+  - name: rr_8v14
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 8, Marauder: 3}
+    enemy: {Marine: 10, Marauder: 4}
     distance: [10, 12]
     time_limit: 60
 
-  - name: rr_8v12
+  - name: rr_8v15
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 9, Marauder: 3}
+    enemy: {Marine: 11, Marauder: 4}
     distance: [10, 12]
     time_limit: 60
 
-  - name: rr_8v13
+  - name: rr_8v15_fewer_marauders
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 10, Marauder: 3}
+    enemy: {Marine: 12, Marauder: 3}
     distance: [10, 12]
     time_limit: 60
 
