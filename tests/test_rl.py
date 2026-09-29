@@ -123,6 +123,17 @@ class ScanTargetTest(unittest.TestCase):
         self.assertIsNone(scan_target(self.burrowed, 100, 1.0, 50, [Point2((15, 10))]))  # 5 away: inside
         self.assertEqual(scan_target(self.burrowed, 100, 0.1, 50, [Point2((15, 10))]), Point2((40, 10)))
 
+    def test_burrowed_positions(self):
+        from types import SimpleNamespace
+
+        from tools.rl.enemies import burrowed_positions
+
+        standing = SimpleNamespace(tag=1, position=Point2((1, 1)), type_id=UnitTypeId.ROACH, is_burrowed=False)
+        listed_burrowed = SimpleNamespace(tag=2, position=Point2((2, 2)), type_id=UnitTypeId.ROACHBURROWED, is_burrowed=False)
+        last_seen = {1: Point2((0, 0)), 3: Point2((3, 3))}  # tag 3 is no longer listed: it went down there
+        self.assertEqual(burrowed_positions([standing, listed_burrowed], last_seen),
+                         {2: Point2((2, 2)), 3: Point2((3, 3))})
+
     def test_detections_include_scans(self):
         from types import SimpleNamespace
 

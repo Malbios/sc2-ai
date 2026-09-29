@@ -66,6 +66,20 @@ def scan_target(burrowed: dict[int, tuple[Point2, int]], game_loop: int, reactio
     return None
 
 
+BURROWED_TYPES = {UnitTypeId.ROACHBURROWED}
+
+
+def burrowed_positions(listed: Units, last_seen: dict[int, Point2]) -> dict[int, Point2]:
+    """Where the enemy's units are burrowed (tag -> position). Burrowed units mostly drop out of
+    the unit list (the rest are listed as their burrowed type), so a unit last seen at a spot
+    that is no longer listed, and not dead (the caller drops dead tags from `last_seen`), went
+    down there, as a player would see it happen."""
+    listed_tags = {unit.tag for unit in listed}
+    burrowed = {tag: position for tag, position in last_seen.items() if tag not in listed_tags}
+    burrowed.update({unit.tag: unit.position for unit in listed if unit.type_id in BURROWED_TYPES or unit.is_burrowed})
+    return burrowed
+
+
 def active_scans(effects) -> list[Point2]:
     return [Point2(position) for effect in effects if effect.id == EffectId.SCANNERSWEEP for position in effect.positions]
 
@@ -131,6 +145,8 @@ class ScriptedEnemyBot(BotAI):
         self.returning: set[int] = set()
         self.biles_seen: dict[Point2, int] = {}  # bile center -> game loop it was first seen
         self.burrowed_seen: dict[int, int] = {}  # tag -> game loop it was first seen burrowed
+        self.last_seen: dict[int, Point2] = {}  # tag -> where a living enemy fighter was last listed
+        self.last_briefing: EnemyBriefing | None = None
 
     def _noticed_biles(self, reaction: float) -> list[tuple[Point2, float]]:
         loop = self.state.game_loop
@@ -144,13 +160,17 @@ class ScriptedEnemyBot(BotAI):
         """Scans a learner unit that has been burrowed for `reaction` seconds, while the Orbital
         Command has the energy (see Scenario.enemy_scans)."""
         loop = self.state.game_loop
-        burrowed = fighters(self.enemy_units).filter(lambda unit: unit.is_burrowed)
-        self.burrowed_seen = {unit.tag: self.burrowed_seen.get(unit.tag, loop) for unit in burrowed}
+        listed = fighters(self.enemy_units)
+        for tag in self.state.dead_units:
+            self.last_seen.pop(tag, None)
+        burrowed = burrowed_positions(listed, self.last_seen)
+        self.last_seen.update({unit.tag: unit.position for unit in listed})
+        self.burrowed_seen = {tag: self.burrowed_seen.get(tag, loop) for tag in burrowed}
         orbitals = self.structures(UnitTypeId.ORBITALCOMMAND)
         if not orbitals:
             return
         orbital = orbitals.first
-        target = scan_target({unit.tag: (unit.position, self.burrowed_seen[unit.tag]) for unit in burrowed},
+        target = scan_target({tag: (position, self.burrowed_seen[tag]) for tag, position in burrowed.items()},
                              loop, reaction, orbital.energy, active_scans(self.state.effects))
         if target is not None:
             orbital(AbilityId.SCANNERSWEEP_SCAN, target)
@@ -166,6 +186,10 @@ class ScriptedEnemyBot(BotAI):
             for unit in self.units.of_type(SUPPORT):
                 unit.move(own.center)
         briefing = self.briefing()
+        if briefing is not self.last_briefing:  # a new fight
+            self.last_briefing = briefing
+            self.last_seen.clear()
+            self.burrowed_seen.clear()
         if briefing is not None and briefing.scan_reaction is not None:
             self._scan(briefing.scan_reaction)
         targets = fighters(self.enemy_units).visible  # a burrowed unit is listed but can't be attacked
