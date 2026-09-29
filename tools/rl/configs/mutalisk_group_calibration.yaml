@@ -1,7 +1,8 @@
 # Mutalisks against marines without upgrades, which stand and shoot (chase) or step back while
-# reloading (kite; it triggers within 3, the mutalisk's range), at three sizes. For measuring the
-# attack rule first, to pick sizes where attack-move neither always wins nor always loses; then
-# every rule on those sizes (the headroom survey):
+# reloading (kite; it triggers within 3, the mutalisk's range), at three sizes (attack-move won
+# every fight against 12 marines and none against 16 or 20). For measuring the attack rule first,
+# to pick sizes where attack-move neither always wins nor always loses; then every rule on those
+# sizes (the headroom survey):
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_group_calibration.yaml --baseline attack --episodes 50
 
@@ -17,41 +18,41 @@ enemy:
   race: Terran
 
 scenarios:
-  - name: mutas_8v12_chase
+  - name: mutas_8v13_chase
     learner: {Mutalisk: 8}
-    enemy: {Marine: 12}
+    enemy: {Marine: 13}
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v12_kite
+  - name: mutas_8v13_kite
     learner: {Mutalisk: 8}
-    enemy: {Marine: 12}
+    enemy: {Marine: 13}
     enemy_behavior: kite
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v16_chase
+  - name: mutas_8v14_chase
     learner: {Mutalisk: 8}
-    enemy: {Marine: 16}
+    enemy: {Marine: 14}
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v16_kite
+  - name: mutas_8v14_kite
     learner: {Mutalisk: 8}
-    enemy: {Marine: 16}
+    enemy: {Marine: 14}
     enemy_behavior: kite
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v20_chase
+  - name: mutas_8v15_chase
     learner: {Mutalisk: 8}
-    enemy: {Marine: 20}
+    enemy: {Marine: 15}
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v20_kite
+  - name: mutas_8v15_kite
     learner: {Mutalisk: 8}
-    enemy: {Marine: 20}
+    enemy: {Marine: 15}
     enemy_behavior: kite
     distance: [10, 12]
     time_limit: 60
