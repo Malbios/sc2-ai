@@ -20,11 +20,14 @@ SUMMARY_HEADER = "scenario"
 CRASH_LINE = "SC2 game crashed"
 
 
-def evaluate_command(config: str, model: str, episodes: int, enemy_mode: str | None) -> list[str]:
+def evaluate_command(config: str, model: str, episodes: int, enemy_mode: str | None,
+                     stochastic: bool = False) -> list[str]:
     command = [sys.executable, "-m", "tools.rl.evaluate", "--config", config, "--model", model,
                "--episodes", str(episodes)]
     if enemy_mode:
         command += ["--enemy-mode", enemy_mode]
+    if stochastic:
+        command.append("--stochastic")
     return command
 
 
@@ -78,7 +81,8 @@ def start(command: list[str], model: str) -> subprocess.Popen:
                                 start_new_session=True)
 
 
-def evaluate_many(models: list[str], config: str, episodes: int, enemy_mode: str | None, parallel: int):
+def evaluate_many(models: list[str], config: str, episodes: int, enemy_mode: str | None, parallel: int,
+                  stochastic: bool = False):
     pending = list(models)
     running: dict[str, subprocess.Popen] = {}
     last_launch = 0.0
@@ -87,7 +91,7 @@ def evaluate_many(models: list[str], config: str, episodes: int, enemy_mode: str
         while pending or running:
             if pending and len(running) < parallel and time.monotonic() - last_launch >= LAUNCH_GAP_SECONDS:
                 model = pending.pop(0)
-                running[model] = start(evaluate_command(config, model, episodes, enemy_mode), model)
+                running[model] = start(evaluate_command(config, model, episodes, enemy_mode, stochastic), model)
                 last_launch = time.monotonic()
 
             for model, process in list(running.items()):
@@ -108,6 +112,7 @@ def main():
     parser.add_argument("--config", required=True)
     parser.add_argument("--episodes", type=int, default=20, help="fights per scenario")
     parser.add_argument("--enemy-mode", choices=ENEMY_MODES, help="overrides the config's enemy mode")
+    parser.add_argument("--stochastic", action="store_true", help="sample actions as in training (see tools.rl.evaluate)")
     parser.add_argument("--parallel", type=int, default=4, help="evaluations running at the same time")
     parser.add_argument("models", nargs="+", help="trained models (.zip)")
     args = parser.parse_args()
@@ -115,7 +120,7 @@ def main():
         parser.error("--parallel must be at least 1")
 
     models = [str(Path(model).resolve()) for model in args.models]
-    evaluate_many(models, str(Path(args.config).resolve()), args.episodes, args.enemy_mode, args.parallel)
+    evaluate_many(models, str(Path(args.config).resolve()), args.episodes, args.enemy_mode, args.parallel, args.stochastic)
 
 
 if __name__ == "__main__":

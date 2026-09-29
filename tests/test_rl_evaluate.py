@@ -87,6 +87,8 @@ class EvaluateManyTest(unittest.TestCase):
         self.assertEqual(command[1:], ["-m", "tools.rl.evaluate", "--config", "c.yaml", "--model", "m.zip",
                                        "--episodes", "200", "--enemy-mode", "builtin"])
         self.assertNotIn("--enemy-mode", evaluate_command("c.yaml", "m.zip", 200, None))
+        self.assertEqual(evaluate_command("c.yaml", "m.zip", 200, None, stochastic=True)[-1], "--stochastic")
+        self.assertNotIn("--stochastic", command)
 
 
 if __name__ == "__main__":

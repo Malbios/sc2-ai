@@ -6,8 +6,10 @@
     python -m tools.rl.evaluate --config ... --model ... --enemy-mode builtin
     python -m tools.rl.evaluate --config ... --model ... --replay models/stalker/eval.SC2Replay
     python -m tools.rl.evaluate --config ... --model ... --compare-with kite
+    python -m tools.rl.evaluate --config ... --model ... --stochastic
 
-The model acts deterministically (always its most likely action); in group tasks, every unit
+The model acts deterministically (always its most likely action) unless --stochastic makes it
+sample its actions as in training; in group tasks, every unit
 applies the model or baseline to its own observation. --replay saves every evaluated
 fight, back to back, as one SC2 4.10 replay (open it in sc2-observer).
 """
@@ -83,10 +85,14 @@ def main():
     parser.add_argument("--episodes", type=int, default=20, help="fights per scenario")
     parser.add_argument("--enemy-mode", choices=ENEMY_MODES, help="overrides the config's enemy mode")
     parser.add_argument("--replay", help="save all evaluated fights as one .SC2Replay at this path")
+    parser.add_argument("--stochastic", action="store_true",
+                        help="with --model: sample actions as in training instead of always the most likely one")
     parser.add_argument("--compare-with", help="with --model: also report where the model's actions differ from this baseline's")
     args = parser.parse_args()
     if args.compare_with and not args.model:
         parser.error("--compare-with needs --model")
+    if args.stochastic and not args.model:
+        parser.error("--stochastic needs --model")
 
     config = load_config(args.config)
     if args.enemy_mode:
@@ -102,9 +108,9 @@ def main():
         model = model_class(config).load(args.model, device="cpu")
         if env.task.uses_action_masks:
             choose_action = lambda observation: model.predict(
-                observation, deterministic=True, action_masks=env.action_masks())[0]
+                observation, deterministic=not args.stochastic, action_masks=env.action_masks())[0]
         else:
-            choose_action = lambda observation: model.predict(observation, deterministic=True)[0]
+            choose_action = lambda observation: model.predict(observation, deterministic=not args.stochastic)[0]
     elif args.baseline:
         policy = _baseline(env, args.baseline, parser)
         choose_action = (lambda observations: np.array([policy(row) for row in observations])) if group else policy
