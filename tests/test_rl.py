@@ -94,6 +94,58 @@ class ScenarioTest(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 parse_scenarios([{**SCENARIOS[0], "bile_dodge_reaction": bad}])
 
+    def test_enemy_scans(self):
+        plain, scanning = parse_scenarios([SCENARIOS[0], {**SCENARIOS[1], "enemy_scans": 2, "scan_reaction": [0.5, 1]}])
+        self.assertEqual((plain.enemy_scans, plain.scan_reaction), (0, None))
+        self.assertEqual((scanning.enemy_scans, scanning.scan_reaction), (2, (0.5, 1.0)))
+        for bad in ({"enemy_scans": 1}, {"scan_reaction": [0.5, 1]}, {"enemy_scans": 5, "scan_reaction": [0.5, 1]},
+                    {"enemy_scans": 1, "scan_reaction": [1, 0.5]}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                parse_scenarios([{**SCENARIOS[0], **bad}])
+
+
+class ScanTargetTest(unittest.TestCase):
+    """Loop 100; tag 1 burrowed since loop 70 (1.3 s), tag 2 since loop 95 (0.2 s)."""
+
+    def setUp(self):
+        self.burrowed = {1: (Point2((10, 10)), 70), 2: (Point2((40, 10)), 95)}
+
+    def test_scans_the_unit_burrowed_long_enough(self):
+        from tools.rl.enemies import scan_target
+
+        self.assertEqual(scan_target(self.burrowed, 100, 1.0, 50, []), Point2((10, 10)))
+        self.assertIsNone(scan_target(self.burrowed, 100, 1.5, 50, []))  # not long enough yet
+
+    def test_needs_energy_and_skips_units_already_in_a_scan(self):
+        from tools.rl.enemies import scan_target
+
+        self.assertIsNone(scan_target(self.burrowed, 100, 1.0, 49, []))
+        self.assertIsNone(scan_target(self.burrowed, 100, 1.0, 50, [Point2((15, 10))]))  # 5 away: inside
+        self.assertEqual(scan_target(self.burrowed, 100, 0.1, 50, [Point2((15, 10))]), Point2((40, 10)))
+
+    def test_detections_include_scans(self):
+        from types import SimpleNamespace
+
+        from sc2.ids.effect_id import EffectId
+
+        from tools.rl.driver import detections
+        from tools.rl.enemies import SCAN_RADIUS, Detection
+
+        class StandInUnits(list):
+            def __or__(self, other):
+                return StandInUnits(self + other)
+
+            def filter(self, keep):
+                return StandInUnits(unit for unit in self if keep(unit))
+
+        overseer = SimpleNamespace(position=Point2((5, 5)), detect_range=11.0, is_detector=True)
+        marine = SimpleNamespace(position=Point2((6, 6)), detect_range=0.0, is_detector=False)
+        scan = SimpleNamespace(id=EffectId.SCANNERSWEEP, positions=[(20.0, 20.0)])
+        bile = SimpleNamespace(id=EffectId.RAVAGERCORROSIVEBILECP, positions=[(30.0, 30.0)])
+        bot = SimpleNamespace(enemy_units=StandInUnits([overseer, marine]), enemy_structures=StandInUnits(),
+                              state=SimpleNamespace(effects=[scan, bile]))
+        self.assertEqual(detections(bot), [Detection(Point2((5, 5)), 11.0), Detection(Point2((20, 20)), SCAN_RADIUS)])
+
 
 class DodgePointTest(unittest.TestCase):
     def test_steps_straight_out_of_a_bile_that_would_hit(self):
@@ -1151,6 +1203,73 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         from tools.rl.config import load_config
 
         config = load_config(Path(__file__).parents[1] / "tools/rl/configs/roach_ravager_group_calibration.yaml")
+        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+        self.assertLessEqual(largest, self.task.group_slots)
+
+
+class RoachBurrowGroupTaskTest(unittest.TestCase):
+    """A roach at (20.5, 20.5) with a marine 5 to the east."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.roach_burrow_group_task import RoachBurrowGroupTask
+
+        self.task = RoachBurrowGroupTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.roach = StandInGroupCaster(1, 20.5, 20.5, UnitTypeId.ROACH, health=145, health_max=145)
+        self.roach.is_burrowed = False
+        self.marine = StandInFighter(10, 25.5, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)
+
+    def rule(self, name):
+        return self.task.baseline_policies()[name](self.task.observe(self.roach, [], [self.marine]))
+
+    def test_detection_inputs(self):
+        from tools.rl.enemies import Detection
+        from tools.rl.examples.roach_burrow_group_task import BURROWED, DETECTION_MARGIN, DETECTOR_PRESENT
+
+        self.roach.is_burrowed = True
+        self.task.see_detectors([Detection(Point2((20.5, 25.5)), 13.0)])  # 5 away: 8 inside
+        observation = self.task.observe(self.roach, [], [self.marine])
+        self.assertEqual(observation.shape, self.task.observation_space.shape)
+        self.assertEqual(observation[BURROWED], 1.0)
+        self.assertEqual(observation[DETECTOR_PRESENT], 1.0)
+        self.assertAlmostEqual(float(observation[DETECTION_MARGIN]), -0.8, places=5)
+
+    def test_burrow_rules(self):
+        from tools.rl.enemies import Detection
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS
+        from tools.rl.examples.roach_burrow_group_task import BURROW, UNBURROW
+
+        self.assertEqual(self.rule("burrow"), ATTACK_DANGEROUS)
+        self.roach.health = 50  # 34%
+        self.assertEqual(self.rule("burrow"), BURROW)
+        self.assertEqual(self.rule("burrow_0.3_0.6"), ATTACK_DANGEROUS)
+        self.roach.is_burrowed, self.roach.health = True, 90  # 62%
+        self.assertEqual(self.rule("burrow"), BURROW)  # stays down until above 70%
+        self.assertEqual(self.rule("burrow_0.3_0.6"), UNBURROW)
+        self.task.see_detectors([Detection(Point2((20.5, 25.5)), 13.0)])
+        self.assertEqual(self.rule("burrow"), BURROW)
+        self.assertEqual(self.rule("careful_burrow"), UNBURROW)  # detected: come back up
+        self.roach.is_burrowed, self.roach.health = False, 50
+        self.assertEqual(self.rule("careful_burrow"), ATTACK_DANGEROUS)  # no burrowing where detected
+
+    def test_burrow_actions(self):
+        from sc2.ids.ability_id import AbilityId
+
+        from tools.rl.examples.roach_burrow_group_task import BURROW, UNBURROW
+
+        self.task.apply(self.roach, BURROW, [], [self.marine])
+        self.task.apply(self.roach, UNBURROW, [], [self.marine])
+        self.assertEqual(self.roach.commands, [("ability", AbilityId.BURROWDOWN_ROACH, None),
+                                               ("ability", AbilityId.BURROWUP_ROACH, None)])
+
+    def test_group_slots_cover_the_largest_group(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/roach_burrow_group.yaml")
         largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
         self.assertLessEqual(largest, self.task.group_slots)
 

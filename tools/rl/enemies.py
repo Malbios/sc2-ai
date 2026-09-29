@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 from sc2.bot_ai import BotAI
 from sc2.data import Difficulty, Race
+from sc2.ids.ability_id import AbilityId
 from sc2.ids.effect_id import EffectId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.player import Bot, Computer
@@ -37,6 +38,36 @@ class EnemyBriefing:
     home: Point2  # where the enemy group spawned
     leash: float
     bile_dodge_reaction: float | None = None  # seconds before stepping out of a bile; None: never
+    scan_reaction: float | None = None  # seconds a unit is burrowed before it gets scanned; None: never
+
+
+@dataclass(frozen=True)
+class Detection:
+    """Somewhere burrowed and cloaked units can be seen: a detector unit's or a scan's circle."""
+
+    position: Point2
+    detect_range: float
+
+
+SCAN_ENERGY = 50
+SCAN_RADIUS = 13.0
+
+
+def scan_target(burrowed: dict[int, tuple[Point2, int]], game_loop: int, reaction: float, energy: float,
+                scans: list[Point2]) -> Point2 | None:
+    """Where to scan: the first burrowed unit (tag -> position, game loop it was first seen
+    burrowed) that has been burrowed for `reaction` seconds and isn't inside a scan yet. None
+    without the energy or such a unit."""
+    if energy < SCAN_ENERGY:
+        return None
+    for position, since in burrowed.values():
+        if game_loop - since >= reaction * 22.4 and all(position.distance_to(scan) > SCAN_RADIUS for scan in scans):
+            return position
+    return None
+
+
+def active_scans(effects) -> list[Point2]:
+    return [Point2(position) for effect in effects if effect.id == EffectId.SCANNERSWEEP for position in effect.positions]
 
 
 # A leashed unit walking home fights again once it is this close to home.
@@ -90,7 +121,8 @@ class ScriptedEnemyBot(BotAI):
     briefing, it gives up and walks home past the leash distance instead of chasing forever. With
     a kite briefing, it steps back from close targets while its weapon cools down.
     With a bile dodge reaction, a unit steps out of a ravager's bile once it has seen the bile for
-    that long. Support units (an Overseer) stay at the center of the fighters."""
+    that long. With a scan reaction, its Orbital Command scans units burrowed for that long.
+    Support units (an Overseer) stay at the center of the fighters."""
 
     def __init__(self, decision_interval: int, briefing: Callable[[], EnemyBriefing | None] = lambda: None):
         super().__init__()
@@ -98,6 +130,7 @@ class ScriptedEnemyBot(BotAI):
         self.briefing = briefing
         self.returning: set[int] = set()
         self.biles_seen: dict[Point2, int] = {}  # bile center -> game loop it was first seen
+        self.burrowed_seen: dict[int, int] = {}  # tag -> game loop it was first seen burrowed
 
     def _noticed_biles(self, reaction: float) -> list[tuple[Point2, float]]:
         loop = self.state.game_loop
@@ -106,6 +139,21 @@ class ScriptedEnemyBot(BotAI):
         self.biles_seen = {center: self.biles_seen.get(center, loop) for center in biles}
         return [(center, radius) for center, radius in biles.items()
                 if loop - self.biles_seen[center] >= reaction * 22.4]
+
+    def _scan(self, reaction: float):
+        """Scans a learner unit that has been burrowed for `reaction` seconds, while the Orbital
+        Command has the energy (see Scenario.enemy_scans)."""
+        loop = self.state.game_loop
+        burrowed = fighters(self.enemy_units).filter(lambda unit: unit.is_burrowed)
+        self.burrowed_seen = {unit.tag: self.burrowed_seen.get(unit.tag, loop) for unit in burrowed}
+        orbitals = self.structures(UnitTypeId.ORBITALCOMMAND)
+        if not orbitals:
+            return
+        orbital = orbitals.first
+        target = scan_target({unit.tag: (unit.position, self.burrowed_seen[unit.tag]) for unit in burrowed},
+                             loop, reaction, orbital.energy, active_scans(self.state.effects))
+        if target is not None:
+            orbital(AbilityId.SCANNERSWEEP_SCAN, target)
 
     async def on_start(self):
         # No debug_show_map here: the learner already turned on full vision for the whole game,
@@ -117,10 +165,12 @@ class ScriptedEnemyBot(BotAI):
         if own:
             for unit in self.units.of_type(SUPPORT):
                 unit.move(own.center)
+        briefing = self.briefing()
+        if briefing is not None and briefing.scan_reaction is not None:
+            self._scan(briefing.scan_reaction)
         targets = fighters(self.enemy_units).visible  # a burrowed unit is listed but can't be attacked
         if not targets:
             return
-        briefing = self.briefing()
         dodging = briefing is not None and briefing.bile_dodge_reaction is not None
         biles = self._noticed_biles(briefing.bile_dodge_reaction) if dodging else []
         for unit in own:

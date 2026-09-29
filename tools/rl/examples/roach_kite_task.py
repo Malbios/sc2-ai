@@ -10,6 +10,7 @@ from collections.abc import Callable
 import numpy as np
 from gymnasium import spaces
 from sc2.ids.ability_id import AbilityId
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -39,9 +40,9 @@ class RoachKiteTask(TrackingKiteTask):
 
     def __init__(self):
         super().__init__()
-        self._detectors: Units | list = []
+        self._detectors: list = []
 
-    def see_detectors(self, detectors: Units) -> None:
+    def see_detectors(self, detectors: list) -> None:
         self._detectors = detectors
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
@@ -51,9 +52,8 @@ class RoachKiteTask(TrackingKiteTask):
         observation = super().observe(unit, allies, enemies)
         observation[BURROWED] = 1.0 if unit.is_burrowed else 0.0
         if self._detectors:
-            margin = min(unit.position.distance_to(detector.position) - detector.detect_range for detector in self._detectors)
             observation[DETECTOR_PRESENT] = 1.0
-            observation[DETECTION_MARGIN] = margin / DISTANCE_SCALE
+            observation[DETECTION_MARGIN] = detection_margin(unit.position, self._detectors) / DISTANCE_SCALE
         return observation
 
     def apply(self, unit: Unit, action: int, allies: Units, enemies: Units) -> None:
@@ -72,6 +72,11 @@ class RoachKiteTask(TrackingKiteTask):
             "burrow": lambda observation: _burrow_rule(observation, smart),
             "careful_burrow": lambda observation: _careful_burrow_rule(observation, smart),
         }
+
+
+def detection_margin(position: Point2, detectors: list) -> float:
+    """How far `position` is outside the closest detection circle (negative inside it)."""
+    return min(position.distance_to(detector.position) - detector.detect_range for detector in detectors)
 
 
 def _burrow_rule(observation: np.ndarray, otherwise: Callable[[np.ndarray], int]) -> int:

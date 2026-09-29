@@ -29,6 +29,7 @@ import numpy as np
 from sc2 import maps
 from sc2.bot_ai import BotAI
 from sc2.data import Race
+from sc2.ids.unit_typeid import UnitTypeId
 from sc2.main import _host_game, _join_game
 from sc2.player import Bot
 from sc2.portconfig import Portconfig
@@ -37,10 +38,10 @@ from sc2.sc2process import KillSwitch
 from sc2.units import Units
 
 from tools.rl.config import TrainingConfig
-from tools.rl.enemies import EnemyBriefing, make_enemy_player
+from tools.rl.enemies import SCAN_ENERGY, SCAN_RADIUS, Detection, EnemyBriefing, active_scans, make_enemy_player
 from tools.rl.scenarios import Scenario, spawn_centers
 from tools.rl.kiting import KiteMeter
-from tools.rl.research import UpgradeResearch
+from tools.rl.research import UpgradeResearch, building_spots
 from tools.rl.task import FightSnapshot, MicroTask, life
 
 # Steps to wait for spawned units to show up before clearing and spawning again.
@@ -52,6 +53,8 @@ MAX_GAME_RESTARTS = 3
 GAME_LOOP_LIMIT = 2**19
 RESTART_MARGIN_LOOPS = int(22.4 * 60 * 10)
 ABORT = object()
+ENERGY = 1  # debug_set_unit_value's code for a unit's energy
+SCANNER_SPOT = 6  # the enemy's Orbital Command takes the 7th spot from research.building_spots
 
 
 @dataclass
@@ -112,6 +115,19 @@ def _group_near(units: Units, center: Point2, expected: dict) -> Units | None:
     return group
 
 
+def _scanner_spot(bot: BotAI) -> Point2:
+    """Where the enemy's Orbital Command goes: far from the fights, past the learner's research
+    buildings (which take the farthest spots)."""
+    return building_spots(bot.game_info.placement_grid, bot.game_info.map_center, SCANNER_SPOT + 1)[SCANNER_SPOT]
+
+
+def detections(bot: BotAI) -> list[Detection]:
+    """Where the enemy can see burrowed units: its detector units and structures, and its scans."""
+    detectors = (bot.enemy_units | bot.enemy_structures).filter(lambda unit: unit.is_detector)
+    return ([Detection(unit.position, unit.detect_range) for unit in detectors]
+            + [Detection(position, SCAN_RADIUS) for position in active_scans(bot.state.effects)])
+
+
 class GameDriver:
     def __init__(self, config: TrainingConfig, task: MicroTask, rng: random.Random, launch_delay: float = 0.0):
         self.config = config
@@ -168,12 +184,17 @@ class GameDriver:
             scenario = episode.scenario
             leash = self.rng.uniform(*scenario.leash) if scenario.leash else 0.0
             reaction = self.rng.uniform(*scenario.bile_dodge_reaction) if scenario.bile_dodge_reaction else None
-            self.enemy_briefing = EnemyBriefing(scenario.enemy_behavior, episode.enemy_center, leash, reaction)
+            scan_reaction = self.rng.uniform(*scenario.scan_reaction) if scenario.enemy_scans else None
+            self.enemy_briefing = EnemyBriefing(scenario.enemy_behavior, episode.enemy_center, leash, reaction, scan_reaction)
             me, them = bot.player_id, 3 - bot.player_id
+            scanner = []
+            if scenario.enemy_scans and not bot.enemy_structures(UnitTypeId.ORBITALCOMMAND):
+                scanner = [(UnitTypeId.ORBITALCOMMAND, 1, _scanner_spot(bot), them)]
             await bot.client.debug_create_unit(
                 [(type_id, count, episode.learner_center, me) for type_id, count in episode.scenario.learner.items()]
                 + [(type_id, count, episode.enemy_center, them) for type_id, count in episode.scenario.enemy.items()]
                 + [(type_id, count, episode.enemy_center, them) for type_id, count in episode.scenario.enemy_support.items()]
+                + scanner
             )
             episode.phase, episode.wait_steps = "wait", 0
             return
@@ -181,11 +202,14 @@ class GameDriver:
         if episode.phase == "wait":
             own = _group_near(bot.units, episode.learner_center, episode.scenario.learner)
             enemies = _group_near(bot.enemy_units, episode.enemy_center, episode.scenario.enemy)
-            if own is None or enemies is None:
+            scanners = bot.enemy_structures(UnitTypeId.ORBITALCOMMAND)
+            if own is None or enemies is None or (episode.scenario.enemy_scans and not scanners):
                 episode.wait_steps += 1
                 if episode.wait_steps > SPAWN_TIMEOUT_STEPS:
                     episode.phase = "clear"
                 return
+            if episode.scenario.enemy_scans:
+                await bot.client.debug_set_unit_value(scanners, ENERGY, SCAN_ENERGY * episode.scenario.enemy_scans)
             episode.learner_tags, episode.enemy_tags = own.tags, enemies.tags
             episode.slot_tags = sorted(own.tags)[:self.task.group_slots]
             episode.start = episode.last = FightSnapshot(life(own), life(enemies), life(own), life(enemies))
@@ -230,7 +254,7 @@ class GameDriver:
 
         if not self._decides_now(episode):
             return
-        self.task.see_detectors((bot.enemy_units | bot.enemy_structures).filter(lambda unit: unit.is_detector))
+        self.task.see_detectors(detections(bot))
         await self._share_abilities(bot, own)
         if self.task.group_slots:
             await self._decide_as_group(own, enemies)

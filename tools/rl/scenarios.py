@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from sc2.ids.unit_typeid import UnitTypeId
 
 ENEMY_BEHAVIORS = ("chase", "leash", "kite")
+MAX_SCANS = 4  # an Orbital Command holds 200 energy, 50 per scan
 
 
 @dataclass(frozen=True)
@@ -29,11 +30,15 @@ class Scenario:
     # The scripted enemy steps out of a ravager's bile after seeing it for this long (seconds,
     # drawn per fight from the range); None: it never dodges.
     bile_dodge_reaction: tuple[float, float] | None = None
+    # The scripted enemy can scan (reveal burrowed units for a while) this many times per fight,
+    # once a learner unit has been burrowed for `scan_reaction` (seconds, drawn per fight).
+    enemy_scans: int = 0
+    scan_reaction: tuple[float, float] | None = None
 
     def swapped(self) -> "Scenario":
         """The same fight from the other side, for training the enemy's model in self-play."""
-        if self.enemy_support:
-            raise ValueError(f"scenario '{self.name}': self-play can't swap sides with enemy_support")
+        if self.enemy_support or self.enemy_scans:
+            raise ValueError(f"scenario '{self.name}': self-play can't swap sides with enemy_support or enemy_scans")
         return replace(self, learner=self.enemy, enemy=self.learner)
 
 
@@ -71,10 +76,15 @@ def parse_scenarios(items: list[dict]) -> list[Scenario]:
             if "enemy_support" in item else {},
             bile_dodge_reaction=tuple(float(value) for value in item["bile_dodge_reaction"])
             if "bile_dodge_reaction" in item else None,
+            enemy_scans=int(item.get("enemy_scans", 0)),
+            scan_reaction=tuple(float(value) for value in item["scan_reaction"]) if "scan_reaction" in item else None,
         )
-        reaction = scenario.bile_dodge_reaction
-        if reaction is not None and not (len(reaction) == 2 and 0 <= reaction[0] <= reaction[1]):
-            raise ValueError(f"scenario '{name}': 'bile_dodge_reaction' needs [low, high] with 0 <= low <= high")
+        for key in ("bile_dodge_reaction", "scan_reaction"):
+            reaction = getattr(scenario, key)
+            if reaction is not None and not (len(reaction) == 2 and 0 <= reaction[0] <= reaction[1]):
+                raise ValueError(f"scenario '{name}': '{key}' needs [low, high] with 0 <= low <= high")
+        if not 0 <= scenario.enemy_scans <= MAX_SCANS or (scenario.enemy_scans > 0) != (scenario.scan_reaction is not None):
+            raise ValueError(f"scenario '{name}': 'enemy_scans' must be 0 to {MAX_SCANS}, and above 0 needs 'scan_reaction'")
         if scenario.weight <= 0 or not 0 < low <= high:
             raise ValueError(f"scenario '{name}': weight must be positive and 0 < distance low <= high")
         if scenario.enemy_behavior not in ENEMY_BEHAVIORS:

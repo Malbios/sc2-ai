@@ -1,0 +1,61 @@
+# Burrowing roaches against marines and marauders without upgrades that chase, with 1 or 2 scans
+# per fight (a unit burrowed for 0.5 to 1 s gets scanned). The sizes are the roach group's
+# (roach_group.yaml), where attack-move won 36% and 9% at 200 fights; attack-move never burrows,
+# so the scans can't change its result and no new calibration is needed. For the headroom
+# survey, every rule at 200 fights:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_burrow_group.yaml --baseline careful_burrow --episodes 200
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_burrow_group_task:RoachBurrowGroupTask
+  upgrades: [Burrow, TunnelingClaws]
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: burrow_10v16_scan1
+    learner: {Roach: 10}
+    enemy: {Marine: 12, Marauder: 4}
+    enemy_scans: 1
+    scan_reaction: [0.5, 1.0]
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: burrow_10v16_scan2
+    learner: {Roach: 10}
+    enemy: {Marine: 12, Marauder: 4}
+    enemy_scans: 2
+    scan_reaction: [0.5, 1.0]
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: burrow_12v19_scan1
+    learner: {Roach: 12}
+    enemy: {Marine: 14, Marauder: 5}
+    enemy_scans: 1
+    scan_reaction: [0.5, 1.0]
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: burrow_12v19_scan2
+    learner: {Roach: 12}
+    enemy: {Marine: 14, Marauder: 5}
+    enemy_scans: 2
+    scan_reaction: [0.5, 1.0]
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

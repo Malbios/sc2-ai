@@ -63,9 +63,10 @@ class MicroTask:
     def start_episode(self) -> None:
         """Called when a fight starts, for tasks that keep state across decisions."""
 
-    def see_detectors(self, detectors: Units) -> None:
-        """Called every game step before the units decide, with the visible enemy units and
-        structures that detect burrowed or cloaked units, for tasks that care."""
+    def see_detectors(self, detectors: list) -> None:
+        """Called every game step before the units decide, with where the enemy detects burrowed
+        or cloaked units (enemies.Detection: its detector units and structures, and its scans),
+        for tasks that care."""
 
     def see_abilities(self, available: dict[int, set[AbilityId]]) -> None:
         """Called every game step before the units decide, with the abilities each learner unit
