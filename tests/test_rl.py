@@ -880,18 +880,18 @@ class StandInFighter(StandInUnit):
         super().__init__(tag, x, y, health=health, health_max=health_max, shield=0, shield_max=0,
                          ground_range=ground_range)
         self.dps = dps
+        self.order_target = None
 
     def calculate_dps_vs_target(self, target):
         return self.dps
 
-    def target_in_range(self, target, bonus_distance=0):
-        reach = self.radius + target.radius + self.ground_range + bonus_distance
-        return self.position.distance_to(target.position) <= reach
+    def target_in_range(self, target):
+        return self.position.distance_to(target.position) <= self.radius + target.radius + self.ground_range
 
 
 class RoachGroupTaskTest(unittest.TestCase):
-    """A roach at (20.5, 20.5): a marine 5 to the east and a marauder 6 to the north are in reach
-    (range 4, plus both radii, plus 1), a marine 10 to the east is not."""
+    """A roach at (20.5, 20.5): a marine 5 to the east and a marauder 4.5 to the north are in
+    range (4, plus both radii), a marine 10 to the east is not."""
 
     def setUp(self):
         from types import SimpleNamespace
@@ -902,7 +902,7 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
         self.roach = StandInFighter(1, 20.5, 20.5, health=145, health_max=145)
         self.marine = StandInFighter(10, 25.5, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)
-        self.marauder = StandInFighter(11, 20.5, 26.5, health=125, health_max=125, dps=20.0, ground_range=6)
+        self.marauder = StandInFighter(11, 20.5, 25.0, health=125, health_max=125, dps=20.0, ground_range=6)
         self.far_marine = StandInFighter(12, 30.5, 20.5, health=5, health_max=45, dps=10.0, ground_range=5)
 
     def target(self, action, enemies):
@@ -920,20 +920,31 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.assertEqual(len(observation), INPUTS)
         self.assertEqual(observation[:2], [0.0, 1.0])
         self.assertEqual(observation[FIRST_ENEMY:FIRST_ENEMY + 16],
-                         [1.0, 0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.5, 1.0, 0.0, 0.6, 0.6, 1.0, 0.0, 0.0, 1.0])
+                         [1.0, 0.0, 0.45, 0.45, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.5])  # closest first
         self.assertEqual(observation[FIRST_ENEMY + 16:FIRST_ALLY], [0.0] * 16)
 
-    def test_attacks_pick_their_target_among_the_enemies_in_reach(self):
+    def test_attacks_pick_their_target_among_the_enemies_in_range(self):
         from tools.rl.examples.roach_group_task import ATTACK_CLOSEST, ATTACK_DANGEROUS, ATTACK_WEAKEST
 
         enemies = [self.far_marine, self.marauder, self.marine]
-        self.assertIs(self.target(ATTACK_CLOSEST, enemies), self.marine)
-        self.assertIs(self.target(ATTACK_WEAKEST, enemies), self.marine)  # the far marine is weaker but out of reach
+        self.assertIs(self.target(ATTACK_CLOSEST, enemies), self.marauder)
+        self.assertIs(self.target(ATTACK_WEAKEST, enemies), self.marine)  # the far marine is weaker but out of range
         self.assertIs(self.target(ATTACK_DANGEROUS, enemies), self.marine)  # 10 / 45 beats 20 / 125
         self.marauder.health = 50
         self.assertIs(self.target(ATTACK_DANGEROUS, enemies), self.marauder)  # 20 / 50
 
-    def test_attacks_fall_back_to_the_closest_with_nobody_in_reach(self):
+    def test_ties_keep_the_current_target_then_go_to_the_closest(self):
+        from tools.rl.examples.roach_group_task import ATTACK_DANGEROUS, ATTACK_WEAKEST
+
+        farther = StandInFighter(13, 16.0, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)  # 4.5 west
+        closer = StandInFighter(14, 20.5, 16.5, health=45, health_max=45, dps=10.0, ground_range=5)  # 4 south
+        for action in (ATTACK_WEAKEST, ATTACK_DANGEROUS):
+            self.roach.order_target = None
+            self.assertIs(self.target(action, [farther, closer]), closer)
+            self.roach.order_target = farther.tag
+            self.assertIs(self.target(action, [farther, closer]), farther)
+
+    def test_attacks_fall_back_to_the_closest_with_nobody_in_range(self):
         from tools.rl.examples.roach_group_task import ATTACK_DANGEROUS, ATTACK_WEAKEST
 
         self.assertIs(self.target(ATTACK_WEAKEST, [self.far_marine]), self.far_marine)

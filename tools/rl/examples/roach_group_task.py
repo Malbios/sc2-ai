@@ -1,5 +1,5 @@
 """A roach group against marines and marauders: every roach decides for itself each step, with a
-choice of whom to shoot (the closest, the weakest in reach, or the most dangerous in reach) and
+choice of whom to shoot (the closest, the weakest in range, or the most dangerous in range) and
 eight directions to move in.
 
 Built for the headroom check: the attack, focus, threat and smart rules differ only in their
@@ -35,7 +35,6 @@ SEEN_ALLIES = 4
 ALLY_INPUTS = 4  # present, x, y, life
 COOLDOWN_SCALE = 32.0  # a roach's cooldown in game loops
 THREAT_SCALE = 20.0  # damage per second
-REACH_BONUS = 1.0  # "in reach": within weapon range plus this
 
 COOLDOWN, LIFE = 0, 1
 FIRST_ENEMY = 2
@@ -104,19 +103,22 @@ class RoachGroupTask(ZerglingSurroundTask):
 
 def _target(unit: Unit, action: int, enemies: Units) -> Unit:
     """The enemy an attack action shoots at. The weakest and most dangerous are picked among the
-    enemies in reach; with none in reach, the closest."""
-    closest = _by_distance(unit, enemies)[0]
-    in_reach = [enemy for enemy in enemies if unit.target_in_range(enemy, bonus_distance=REACH_BONUS)]
-    if action == ATTACK_CLOSEST or not in_reach:
-        return closest
+    enemies in weapon range; with none in range, the closest. Ties (e.g. several unhurt marines)
+    go to the current target, then to the closest: switching targets restarts the attack, so a
+    roach that switched every decision would never fire."""
+    by_distance = _by_distance(unit, enemies)
+    in_range = [enemy for enemy in by_distance if unit.target_in_range(enemy)]
+    if action == ATTACK_CLOSEST or not in_range:
+        return by_distance[0]
     life_left = lambda enemy: max(enemy.health + enemy.shield, 1.0)
+    not_current = lambda enemy: enemy.tag != unit.order_target
     if action == ATTACK_WEAKEST:
-        return min(in_reach, key=life_left)
-    return max(in_reach, key=lambda enemy: enemy.calculate_dps_vs_target(unit) / life_left(enemy))
+        return min(in_range, key=lambda enemy: (life_left(enemy), not_current(enemy)))
+    return min(in_range, key=lambda enemy: (-enemy.calculate_dps_vs_target(unit) / life_left(enemy), not_current(enemy)))
 
 
 def _smart_rule(observation: np.ndarray) -> int:
-    """Shoot the most dangerous enemy in reach; but a roach below PULL_BACK_BELOW life with an
+    """Shoot the most dangerous enemy in range; but a roach below PULL_BACK_BELOW life with an
     enemy within PULL_BACK_DISTANCE steps back, away from the enemies (closer ones count more)."""
     closest_distance = observation[FIRST_ENEMY + 3] * DISTANCE_SCALE
     hurt = observation[LIFE] < PULL_BACK_BELOW
