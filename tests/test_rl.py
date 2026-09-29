@@ -873,6 +873,93 @@ class ZerglingSurroundTaskTest(unittest.TestCase):
         self.assertLessEqual(largest, self.task.group_slots)
 
 
+class StandInFighter(StandInUnit):
+    """A StandInUnit with a fixed damage per second against anything, and python-sc2's reach check."""
+
+    def __init__(self, tag, x, y, health, health_max, dps=0.0, ground_range=4):
+        super().__init__(tag, x, y, health=health, health_max=health_max, shield=0, shield_max=0,
+                         ground_range=ground_range)
+        self.dps = dps
+
+    def calculate_dps_vs_target(self, target):
+        return self.dps
+
+    def target_in_range(self, target, bonus_distance=0):
+        reach = self.radius + target.radius + self.ground_range + bonus_distance
+        return self.position.distance_to(target.position) <= reach
+
+
+class RoachGroupTaskTest(unittest.TestCase):
+    """A roach at (20.5, 20.5): a marine 5 to the east and a marauder 6 to the north are in reach
+    (range 4, plus both radii, plus 1), a marine 10 to the east is not."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.roach_group_task import RoachGroupTask
+
+        self.task = RoachGroupTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.roach = StandInFighter(1, 20.5, 20.5, health=145, health_max=145)
+        self.marine = StandInFighter(10, 25.5, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)
+        self.marauder = StandInFighter(11, 20.5, 26.5, health=125, health_max=125, dps=20.0, ground_range=6)
+        self.far_marine = StandInFighter(12, 30.5, 20.5, health=5, health_max=45, dps=10.0, ground_range=5)
+
+    def target(self, action, enemies):
+        self.roach.commands.clear()
+        self.task.apply(self.roach, action, [], enemies)
+        return self.roach.commands[0][1]
+
+    def smart(self, enemies):
+        return self.task.baseline_policies()["smart"](self.task.observe(self.roach, [], enemies))
+
+    def test_observation(self):
+        from tools.rl.examples.roach_group_task import FIRST_ALLY, FIRST_ENEMY, INPUTS
+
+        observation = self.task.observe(self.roach, [], [self.marauder, self.marine]).astype(float).round(3).tolist()
+        self.assertEqual(len(observation), INPUTS)
+        self.assertEqual(observation[:2], [0.0, 1.0])
+        self.assertEqual(observation[FIRST_ENEMY:FIRST_ENEMY + 16],
+                         [1.0, 0.5, 0.0, 0.5, 1.0, 0.0, 0.0, 0.5, 1.0, 0.0, 0.6, 0.6, 1.0, 0.0, 0.0, 1.0])
+        self.assertEqual(observation[FIRST_ENEMY + 16:FIRST_ALLY], [0.0] * 16)
+
+    def test_attacks_pick_their_target_among_the_enemies_in_reach(self):
+        from tools.rl.examples.roach_group_task import ATTACK_CLOSEST, ATTACK_DANGEROUS, ATTACK_WEAKEST
+
+        enemies = [self.far_marine, self.marauder, self.marine]
+        self.assertIs(self.target(ATTACK_CLOSEST, enemies), self.marine)
+        self.assertIs(self.target(ATTACK_WEAKEST, enemies), self.marine)  # the far marine is weaker but out of reach
+        self.assertIs(self.target(ATTACK_DANGEROUS, enemies), self.marine)  # 10 / 45 beats 20 / 125
+        self.marauder.health = 50
+        self.assertIs(self.target(ATTACK_DANGEROUS, enemies), self.marauder)  # 20 / 50
+
+    def test_attacks_fall_back_to_the_closest_with_nobody_in_reach(self):
+        from tools.rl.examples.roach_group_task import ATTACK_DANGEROUS, ATTACK_WEAKEST
+
+        self.assertIs(self.target(ATTACK_WEAKEST, [self.far_marine]), self.far_marine)
+        self.assertIs(self.target(ATTACK_DANGEROUS, [self.far_marine]), self.far_marine)
+
+    def test_smart_pulls_back_only_when_hurt_and_close(self):
+        from tools.rl.examples.roach_group_task import ATTACK_DANGEROUS, FIRST_MOVE
+
+        west = FIRST_MOVE + 4
+        self.assertEqual(self.smart([self.marine]), ATTACK_DANGEROUS)
+        self.roach.health = 40
+        self.assertEqual(self.smart([self.marine]), west)
+        self.assertEqual(self.smart([self.far_marine]), ATTACK_DANGEROUS)
+        self.assertEqual({name: rule(None) for name, rule in self.task.baseline_policies().items() if name != "smart"},
+                         {"attack": 0, "focus": 1, "threat": 2})
+
+    def test_group_slots_cover_the_largest_calibration_group(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/roach_group_calibration.yaml")
+        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+        self.assertLessEqual(largest, self.task.group_slots)
+
+
 class DecideEveryTest(unittest.TestCase):
     def test_decides_on_the_first_and_every_kth_step(self):
         from types import SimpleNamespace
