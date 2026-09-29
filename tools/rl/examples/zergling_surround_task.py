@@ -71,10 +71,14 @@ class ZerglingSurroundTask(FreeKiteTask):
     def share_team_reward(self, team: float, units: Units) -> dict[int, float]:
         """The damage dealt this game step goes to the zerglings that attacked in it (their weapon
         cooldown went up since the last step), in equal parts; to all of them if none did."""
-        attackers = [unit for unit in units if unit.weapon_cooldown > self._last_cooldowns.get(unit.tag, math.inf)]
+        attackers = [unit for unit in units if self._attacked(unit)]
         self._last_cooldowns = {unit.tag: unit.weapon_cooldown for unit in units}
         sharing = attackers or list(units)
         return {unit.tag: team / len(sharing) for unit in sharing}
+
+    def _attacked(self, unit: Unit) -> bool:
+        """Whether `unit` attacked in the last game step: its weapon cooldown went up."""
+        return unit.weapon_cooldown > self._last_cooldowns.get(unit.tag, math.inf)
 
     def observe(self, unit: Unit, allies: Units, enemies: Units) -> np.ndarray:
         """Own weapon cooldown and life; the 4 closest enemies (closest first, zeros when missing):

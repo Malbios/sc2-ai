@@ -1211,6 +1211,20 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         self.marauder.position = Point2((20.5, 30.5))  # both 10 away, out of bile range
         self.assertEqual(lead_half(self.task.observe(self.ravager, [], self.enemies)), ATTACK_DANGEROUS)
 
+    def test_ravagers_share_damage_while_their_bile_may_land(self):
+        from tools.rl.examples.roach_ravager_group_task import BILE_CREDIT_STEPS, bile_action
+
+        self.roach.weapon_cooldown = self.ravager.weapon_cooldown = 0.0
+        units = [self.ravager, self.roach]
+        self.task.share_team_reward(0.0, units)
+        self.task.observe(self.ravager, [], self.enemies)
+        self.task.apply(self.ravager, bile_action("closest", 1.0), [], self.enemies)
+        self.roach.weapon_cooldown = 20.0  # the roach fires in the next step
+        self.assertEqual(self.task.share_team_reward(4.0, units), {1: 2.0, 2: 2.0})
+        for _ in range(BILE_CREDIT_STEPS - 1):
+            self.assertEqual(self.task.share_team_reward(4.0, units), {1: 4.0})  # nobody fired: bile's
+        self.assertEqual(self.task.share_team_reward(4.0, units), {1: 2.0, 2: 2.0})  # no one: all share
+
     def test_clump_condition(self):
         from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS
         from tools.rl.examples.roach_ravager_group_task import bile_action

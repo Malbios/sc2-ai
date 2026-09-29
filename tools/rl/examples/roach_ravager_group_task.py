@@ -40,6 +40,9 @@ BILE_LEADS = (0.0, 0.25, 0.5, 0.75, 1.0, 1.5)
 # The clump condition: other seen enemies within this distance of the bile's target.
 CLUMP_RADIUS = 2.0
 CLUMP_SIZES = (0, 1, 2)
+# Game steps after a bile cast in which damage may be the bile's: its 1.6 s flight is 12 steps
+# at decision interval 3, plus a margin.
+BILE_CREDIT_STEPS = 16
 
 
 def bile_action(target: str, lead: float) -> int:
@@ -56,6 +59,23 @@ class RoachRavagerGroupTask(GroupFightTask):
         super().__init__()
         self._abilities: dict[int, set[AbilityId]] = {}
         self._movement: dict[tuple[int, int], Point2] = {}
+        self._game_steps = 0
+        self._bile_casts: dict[int, int] = {}  # ravager tag -> game step of its last bile
+
+    def start_episode(self) -> None:
+        super().start_episode()
+        self._game_steps = 0
+        self._bile_casts.clear()
+
+    def share_team_reward(self, team: float, units: Units) -> dict[int, float]:
+        """Like ZerglingSurroundTask's, but a ravager whose bile may be landing (cast within the
+        last BILE_CREDIT_STEPS game steps) counts as attacking too."""
+        self._game_steps += 1
+        return super().share_team_reward(team, units)
+
+    def _attacked(self, unit: Unit) -> bool:
+        cast = self._bile_casts.get(unit.tag)
+        return super()._attacked(unit) or (cast is not None and self._game_steps - cast <= BILE_CREDIT_STEPS)
 
     def see_abilities(self, available: dict[int, set[AbilityId]]) -> None:
         self._abilities = available
@@ -78,6 +98,7 @@ class RoachRavagerGroupTask(GroupFightTask):
         else:
             target_index, lead_index = divmod(action - FIRST_EXTRA_ACTION, len(BILE_LEADS))
             whom, lead = BILE_TARGETS[target_index], BILE_LEADS[lead_index]
+            self._bile_casts[unit.tag] = self._game_steps
             unit(BILE, self.bile_point(unit, self._bile_target(unit, whom, enemies), lead))
 
     def bile_point(self, unit: Unit, target: Unit, lead: float) -> Point2:
