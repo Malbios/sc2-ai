@@ -1211,6 +1211,15 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         self.marauder.position = Point2((20.5, 30.5))  # both 10 away, out of bile range
         self.assertEqual(lead_half(self.task.observe(self.ravager, [], self.enemies)), ATTACK_DANGEROUS)
 
+    def test_training_config(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/roach_ravager_train.yaml")
+        self.assertEqual(config.learner.decide_every, 1)  # bile's lead assumes it
+        self.assertLessEqual(max(sum(s.learner.values()) for s in config.scenarios), self.task.group_slots)
+
     def test_ravagers_share_damage_while_their_bile_may_land(self):
         from tools.rl.examples.roach_ravager_group_task import BILE_CREDIT_STEPS, bile_action
 

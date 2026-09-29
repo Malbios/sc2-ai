@@ -1,0 +1,45 @@
+# Training on the fight the headroom survey picked (roach_ravager_group.yaml): 6 roaches and 2
+# ravagers against 12 marines and 3 marauders that stand in bile or step out of it. A model has
+# to beat the tuned bile rule (see the design doc). PPO uses the zergling "stable" settings, the
+# only group setting that never collapsed; new models start mostly attacking the closest.
+#
+#   python -m tools.rl.train --config tools/rl/configs/roach_ravager_train.yaml --out models/roach-ravager \
+#       --timesteps 3000000 --n-envs 4 --seed 0
+
+map: MicroTraining410
+decision_interval: 3         # bile's lead assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_ravager_group_task:RoachRavagerGroupTask
+  decide_every: 1            # bile's lead assumes one decision per 3 game frames
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: rr_8v15
+    learner: {Roach: 6, Ravager: 2}
+    enemy: {Marine: 12, Marauder: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: rr_8v15_dodge
+    learner: {Roach: 6, Ravager: 2}
+    enemy: {Marine: 12, Marauder: 3}
+    bile_dodge_reaction: [0.3, 0.6]
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0001
+  learning_rate_end: 0.00001
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 4
+  gamma: 0.999
+  ent_coef: 0.0
+  clip_range: 0.1
+  target_kl: 0.02
+  net_arch: [128, 128]
