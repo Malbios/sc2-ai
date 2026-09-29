@@ -1,0 +1,39 @@
+# The mutalisk fights picked by calibration (mutalisk_group_calibration.yaml, the attack rule at
+# 50 fights): only 14 marines is in between, 36% against standing marines and 54% against kiting
+# ones (13 marines: 98 to 100%, 15: 2 to 4%). For the headroom survey, every rule at 200 fights:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_group.yaml --baseline kite_6 --episodes 200
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: mutas_8v14_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 14}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v14_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 14}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
