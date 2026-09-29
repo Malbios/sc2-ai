@@ -971,6 +971,65 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.assertLessEqual(largest, self.task.group_slots)
 
 
+class MutaliskGroupTaskTest(unittest.TestCase):
+    """A mutalisk at (5.5, 20.5) in a playable area from 2 to 38 on both axes; the pathing grid
+    has a wall right next to it, which a flying unit ignores."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.mutalisk_group_task import MutaliskGroupTask
+
+        self.task = MutaliskGroupTask()
+        walls = [(6, 20), (4, 20)]
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40, walls),
+                                             playable_area=SimpleNamespace(x=2, y=2, width=36, height=36)))
+        self.muta = StandInFighter(1, 5.5, 20.5, health=120, health_max=120, ground_range=3)
+
+    def marine(self, tag, x, y):
+        return StandInFighter(tag, x, y, health=45, health_max=45, dps=10.0, ground_range=5)
+
+    def rule(self, name, allies, enemies):
+        return self.task.baseline_policies()[name](self.task.observe(self.muta, allies, enemies))
+
+    def test_rays_stop_at_the_playable_area_edge_only(self):
+        from tools.rl.examples.free_kite_task import DIRECTIONS
+        from tools.rl.examples.group_fight_task import FIRST_RAY
+
+        rays = self.task.observe(self.muta, [], [])[FIRST_RAY:FIRST_RAY + len(DIRECTIONS)]
+        self.assertAlmostEqual(float(rays[0]), 1.0, places=5)  # east: 10, the ray's length, over the wall
+        self.assertAlmostEqual(float(rays[4]), 0.35, places=5)  # west: 3.5 to the edge
+
+    def test_kite_steps_away_only_while_cooling_with_a_marine_close(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
+
+        west = FIRST_MOVE + 4
+        close, far = [self.marine(10, 10.5, 20.5)], [self.marine(11, 13.5, 20.5)]
+        self.assertEqual(self.rule("kite_6", [], close), ATTACK_CLOSEST)  # weapon ready
+        self.muta.weapon_cooldown = 10.0
+        self.assertEqual(self.rule("kite_6", [], close), west)
+        self.assertEqual(self.rule("kite_6", [], far), ATTACK_CLOSEST)  # 8 away
+        self.assertEqual(self.rule("kite_8", [], far), west)
+
+    def test_clump_regroups_only_out_of_marine_reach(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
+
+        north = FIRST_MOVE + 2
+        ally = [StandInFighter(2, 5.5, 23.5, health=120, health_max=120)]  # 3 north
+        self.assertEqual(self.rule("clump_kite_6", ally, [self.marine(10, 15.5, 20.5)]), north)
+        self.assertEqual(self.rule("clump_kite_6_r3", ally, [self.marine(10, 15.5, 20.5)]), ATTACK_CLOSEST)
+        self.assertEqual(self.rule("clump_kite_6", ally, [self.marine(10, 10.5, 20.5)]), ATTACK_CLOSEST)
+
+    def test_group_slots_cover_the_largest_calibration_group(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/mutalisk_group_calibration.yaml")
+        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+        self.assertLessEqual(largest, self.task.group_slots)
+
+
 class DecideEveryTest(unittest.TestCase):
     def test_decides_on_the_first_and_every_kth_step(self):
         from types import SimpleNamespace

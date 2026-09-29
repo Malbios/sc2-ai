@@ -1,0 +1,66 @@
+# Mutalisks against marines without upgrades, which stand and shoot (chase) or step back while
+# reloading (kite; it triggers within 3, the mutalisk's range), at three sizes. For measuring the
+# attack rule first, to pick sizes where attack-move neither always wins nor always loses; then
+# every rule on those sizes (the headroom survey):
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_group_calibration.yaml --baseline attack --episodes 50
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: mutas_8v12_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 12}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v12_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 12}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v16_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 16}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v16_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 16}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v20_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 20}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v20_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 20}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
