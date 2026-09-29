@@ -1068,6 +1068,93 @@ class HydraliskGroupTaskTest(unittest.TestCase):
         self.assertLessEqual(largest, self.task.group_slots)
 
 
+class StandInGroupCaster(StandInFighter):
+    """A StandInFighter of a given type that can cast abilities."""
+
+    def __init__(self, tag, x, y, type_id, **kwargs):
+        super().__init__(tag, x, y, **kwargs)
+        self.type_id = type_id
+
+    def __call__(self, ability, target=None):
+        self.commands.append(("ability", ability, target))
+
+
+class RoachRavagerGroupTaskTest(unittest.TestCase):
+    """A ravager and a roach at (20.5, 20.5); a marine 5 east, a marauder 8 north."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.roach_ravager_group_task import RoachRavagerGroupTask
+
+        self.task = RoachRavagerGroupTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.ravager = StandInGroupCaster(1, 20.5, 20.5, UnitTypeId.RAVAGER, health=120, health_max=120, ground_range=6)
+        self.roach = StandInGroupCaster(2, 20.5, 20.5, UnitTypeId.ROACH, health=145, health_max=145)
+        self.marine = StandInFighter(10, 25.5, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)
+        self.marauder = StandInFighter(11, 20.5, 28.5, health=125, health_max=125, dps=20.0, ground_range=6)
+        self.enemies = [self.marauder, self.marine]
+
+    def ready(self):
+        from sc2.ids.ability_id import AbilityId
+
+        self.task.see_abilities({1: {AbilityId.EFFECT_CORROSIVEBILE}})
+
+    def test_ravager_and_bile_ready_inputs(self):
+        from tools.rl.examples.roach_ravager_group_task import BILE_READY, IS_RAVAGER
+
+        self.ready()
+        ravager = self.task.observe(self.ravager, [], self.enemies)
+        roach = self.task.observe(self.roach, [], self.enemies)
+        self.assertEqual(ravager.shape, self.task.observation_space.shape)
+        self.assertEqual((ravager[IS_RAVAGER], ravager[BILE_READY]), (1.0, 1.0))
+        self.assertEqual((roach[IS_RAVAGER], roach[BILE_READY]), (0.0, 0.0))
+
+    def test_bile_actions(self):
+        from sc2.ids.ability_id import AbilityId
+
+        from tools.rl.examples.ravager_task import BILE_FLIGHT_SECONDS, DECISION_SECONDS
+        from tools.rl.examples.roach_ravager_group_task import BILE_CLOSEST, BILE_DANGEROUS, BILE_CLOSEST_LEAD_HALF
+
+        self.task.observe(self.ravager, [], self.enemies)
+        self.marine.position = Point2((25.1, 20.5))  # moved 0.4 toward the ravager
+        self.task.observe(self.ravager, [], self.enemies)
+        self.marauder.health = 50  # 20 / 50 now beats the marine's 10 / 45
+        for action in (BILE_CLOSEST, BILE_CLOSEST_LEAD_HALF, BILE_DANGEROUS):
+            self.task.apply(self.ravager, action, [], self.enemies)
+        (_, ability, led), (_, _, half), (_, _, dangerous) = self.ravager.commands
+        self.assertEqual(ability, AbilityId.EFFECT_CORROSIVEBILE)
+        self.assertAlmostEqual(led.x, 25.1 - 0.4 * BILE_FLIGHT_SECONDS / DECISION_SECONDS, places=4)
+        self.assertAlmostEqual(half.x, 25.1 - 0.5 * 0.4 * BILE_FLIGHT_SECONDS / DECISION_SECONDS, places=4)
+        self.assertEqual(dangerous, Point2((20.5, 28.5)))
+        self.task.apply(self.roach, BILE_CLOSEST, [], self.enemies)
+        self.assertEqual(self.roach.commands, [("attack", self.marine)])
+
+    def test_bile_rules(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, ATTACK_DANGEROUS
+        from tools.rl.examples.roach_ravager_group_task import BILE_CLOSEST, BILE_DANGEROUS
+
+        rules = self.task.baseline_policies()
+        self.assertEqual(rules["bile"](self.task.observe(self.ravager, [], self.enemies)), ATTACK_CLOSEST)  # not ready
+        self.ready()
+        observation = self.task.observe(self.ravager, [], self.enemies)
+        self.assertEqual(rules["bile"](observation), BILE_CLOSEST)
+        self.assertEqual(rules["bile_threat_dangerous"](observation), BILE_DANGEROUS)
+        self.assertEqual(rules["bile_threat"](self.task.observe(self.roach, [], self.enemies)), ATTACK_DANGEROUS)
+        self.marine.position = Point2((30.5, 20.5))
+        self.marauder.position = Point2((20.5, 30.5))  # both 10 away, out of bile range
+        self.assertEqual(rules["bile"](self.task.observe(self.ravager, [], self.enemies)), ATTACK_CLOSEST)
+
+    def test_group_slots_cover_the_largest_calibration_group(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/roach_ravager_group_calibration.yaml")
+        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+        self.assertLessEqual(largest, self.task.group_slots)
+
+
 class DecideEveryTest(unittest.TestCase):
     def test_decides_on_the_first_and_every_kth_step(self):
         from types import SimpleNamespace
