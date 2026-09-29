@@ -1,0 +1,33 @@
+# The hydralisk fight picked by calibration (hydralisk_group_calibration.yaml, the attack rule at
+# 50 fights): only 8 zealots is in between, at 26% (7 zealots: 96%, 9: 0%). For the headroom
+# survey, every rule at 200 fights:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_group.yaml --baseline kite_3 --episodes 200
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.hydralisk_group_task:HydraliskGroupTask
+  upgrades: [EvolveMuscularAugments, EvolveGroovedSpines]
+
+enemy:
+  mode: scripted
+  race: Protoss
+
+scenarios:
+  - name: hydras_8v8
+    learner: {Hydralisk: 8}
+    enemy: {Zealot: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
