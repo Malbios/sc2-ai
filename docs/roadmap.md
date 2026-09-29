@@ -71,8 +71,9 @@ Several learner units already share one model in a fight, each deciding for itse
 - [x] Headroom survey, rules only (design doc): hydralisks vs zealots and burrow roaches vs
       scans are rule territory; mutalisks vs marines unclear; roaches with ravagers vs bio
       passes both bars (bile adds 45 to 75 points, the lead alone 20) and is the RL target.
-- [ ] Roaches with ravagers vs bio: tune the bile rule's numbers first (lead, target, when), then
-      the bar for a model is the tuned rule.
+- [x] Roaches with ravagers vs bio: tune the bile rule first (lead 0 is best; tuned rule 96 /
+      87%, standing in bile / dodging), then train. 3M slot decisions reached 87 / 74% (sampled
+      actions), below the rule but still rising (design doc).
 
 ## 4. The bot itself
 

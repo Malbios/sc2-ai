@@ -538,6 +538,29 @@ spread by 15 points. Enemies without upgrades, attacking the closest. Wins, 200 
   list (the few still listed have type ROACHBURROWED and is_burrowed false), so it now scans
   where a learner unit vanished without dying.
 
+Tuning the bile rule, then training against it (2026-09). Rules first, 200 fights per fight
+(standing in bile / dodging):
+
+| bile rule (the most dangerous in range shot otherwise) | standing | dodging |
+|---|---|---|
+| closest, lead 0 / 0.125 / 0.25 / 0.5 / 0.75 / 1 | 98 / 93 / 81 / 80 / 65 / 56% | 83 / 76 / 72 / 72 / 66 / 59% |
+| closest, lead 0, only at a clump of 2 / 3 | 97 / 100% | 84 / 81% |
+| the most dangerous in range, lead 0 (the tuned rule) | 96% | 87% |
+
+- **Bile where the target is now.** Any lead does worse; bio mostly stands while it shoots.
+  Whom to bile and waiting for clumps change nothing beyond noise. Tuning alone added 11 to 18
+  points over the survey's best rule, which is why the bar for a model is the tuned rule.
+- **Trained from scratch, the model learned to bile but stayed below the tuned rule.** 3M slot
+  decisions (40 minutes), attack-biased start, the zergling "stable" PPO settings, damage
+  credited to ravagers while their bile may land. Sampled actions, 200 fights: 2M 78 / 64%,
+  final 87 / 74%, against the tuned rule's 96 / 87%. Still rising at the end (+9 / +10 points
+  from 2M to 3M) while the learning rate had decayed to its minimum.
+- **Deterministic evaluation hid all of it:** always taking the most likely action, the same
+  models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
+  biling, so the most likely action never biles; sampled, a ready ravager biles within a few
+  steps. `evaluate --stochastic` now samples. Earlier group runs (zerglings) were only
+  evaluated deterministically, so rare but decisive actions may have been hidden there too.
+
 Tooling pitfalls:
 
 - `debug_show_map` is one game-wide toggle, so only one client may send it; two clients sending it
