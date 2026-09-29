@@ -377,6 +377,14 @@ What the ravager baselines showed (bile, 2026-09). Bile lands about 1.6 s after 
   (55%); against leashers below the kite rule (100%), with up to 21% of fights timing out. In
   1 vs 1 it ended up kiting like the smart rule, not biling like the lead rule. So a model can
   learn some bile, but in this mix of fights it doesn't keep it.
+- **With the lead rule doing the aiming, the model still fell short of the rules.** In
+  RavagerHybridTask both bile actions aim with the straight-line lead; the model only picks when
+  to bile, at which of the 2 closest enemies, and how to move and attack (same fights, reward,
+  masking and PPO settings as above). Its own lead rule baseline reproduced the rule (50 fights:
+  2% against chasers, 50% against dodgers). The checkpoints (1M to final, 200 fights each) won
+  0 to 2% against 2 chasers (rule 4%), 4 to 14% against 2 dodgers (rule 55%) and 44 to 69%
+  against 2 leashers with 59 to 76% life lost (the kite rule: 100% with 23%). Taking the aiming
+  away didn't help: the model didn't learn when a bile pays off.
 - **Evaluation noise is large.** 2M and final are 896 decisions apart, almost the same model,
   yet differ by up to 9 points (leashers 87 vs 78%). With 200 fights, treat gaps under about 5
   points near 5% win rates, and under about 10 points near 50%, as chance.

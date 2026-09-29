@@ -3,7 +3,11 @@
 What's next, in order. Details and reasons are in `starcraft-bot-design.md`; this file is the
 checklist. Tick items off as they're done.
 
-The current goal is to find out whether RL micro beats scripted micro. The bot comes after that.
+The first goal was to find out whether RL micro beats scripted micro. Answer at our scale (one
+8-core box, runs of hours): no. Across stalker, roach, ravager and a zergling group, trained
+models at best matched simple rules and never beat one in a measured, repeatable way (details in
+the design doc's lessons). The RL sections below stay as a record; the next goal is the bot
+without ML models (section 4), with the training toolkit as a test bench for scripted micro.
 
 ## 1. Training toolkit, for single-unit models
 
@@ -34,8 +38,9 @@ chasing, leashing and built-in AI enemies. It counts as a win for RL only if it 
       plateaued below every rule; with winnable 1 vs 1 fights mixed in it still didn't learn to
       aim bile (stopped at 500k). Paying for damage and masking bile actions got it level with
       the lead rule against 1 chaser at 500k, but later checkpoints traded that for the
-      leashing fights; no checkpoint beats the best rule anywhere. Kept for later: a last test
-      where the lead rule aims and the model only decides when to bile, which enemy, and moves.
+      leashing fights; no checkpoint beats the best rule anywhere. A last test where the lead
+      rule aims and the model only decides when to bile, which enemy, and moves also stayed far
+      below the rules (RavagerHybridTask).
 - Roach, parked: the burrow rule already wins everything without detection, and nothing wins
   with an Overseer, so there's no room to beat it (see the design doc's roach lessons)
 - [ ] Hydralisk: focus fire and kiting in groups (needs the group items below)
