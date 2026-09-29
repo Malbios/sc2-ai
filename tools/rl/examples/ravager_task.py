@@ -22,6 +22,7 @@ from tools.rl.examples.free_kite_task import (
     FIRST_MOVE,
     FIRST_MOVEMENT,
     SEEN_ENEMIES,
+    FreeKiteTask,
     TrackingKiteTask,
     _by_distance,
 )
@@ -83,8 +84,8 @@ class RavagerTask(TrackingKiteTask):
         smart = policies["smart"]
         return {
             **policies,
-            "bile_now": lambda observation: _bile_rule(observation, NOW, smart),
-            "bile_lead": lambda observation: _bile_rule(observation, STRAIGHT_LINE, smart),
+            "bile_now": lambda observation: _bile_rule(observation, bile_action(0, NOW), smart),
+            "bile_lead": lambda observation: _bile_rule(observation, bile_action(0, STRAIGHT_LINE), smart),
         }
 
 
@@ -109,10 +110,31 @@ class RavagerBileTask(RavagerTask):
         return 0.0
 
 
-def _bile_rule(observation: np.ndarray, lead_index: int, otherwise: Callable[[np.ndarray], int]) -> int:
-    """Bile the closest enemy whenever bile is ready and it is in range; otherwise `otherwise`."""
+class RavagerHybridTask(RavagerBileTask):
+    """RavagerBileTask where the lead rule aims: the model no longer picks a lead, only whether to
+    bile now and at which of the 2 closest enemies, always with the straight-line lead. The
+    earlier runs had to learn the aiming too, which a formula already gets right; this asks
+    whether a model adds anything on top of that rule. 12 actions: TrackingKiteTask's 10, then
+    bile the closest, bile the second closest."""
+
+    action_space = spaces.Discrete(FIRST_BILE + SEEN_ENEMIES)
+
+    def apply(self, unit: Unit, action: int, allies: Units, enemies: Units) -> None:
+        if action >= FIRST_BILE:
+            action = bile_action(action - FIRST_BILE, STRAIGHT_LINE)
+        super().apply(unit, action, allies, enemies)
+
+    def baseline_policies(self) -> dict[str, Callable[[np.ndarray], int]]:
+        policies = FreeKiteTask.baseline_policies(self)
+        smart = policies["smart"]
+        return {**policies, "bile_lead": lambda observation: _bile_rule(observation, FIRST_BILE, smart)}
+
+
+def _bile_rule(observation: np.ndarray, bile: int, otherwise: Callable[[np.ndarray], int]) -> int:
+    """`bile` (an action biling the closest enemy) whenever bile is ready and the closest enemy is
+    in range; otherwise `otherwise`."""
     closest_present = observation[FIRST_ENEMY]
     closest_distance = observation[CLOSEST_DISTANCE] * DISTANCE_SCALE
     if observation[BILE_READY] and closest_present and closest_distance <= BILE_RANGE:
-        return bile_action(0, lead_index)
+        return bile
     return otherwise(observation)

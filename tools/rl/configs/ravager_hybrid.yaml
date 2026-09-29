@@ -1,0 +1,74 @@
+# ravager_bile.yaml with RavagerHybridTask: the lead rule aims every bile (straight-line lead), and the
+# model only decides when to bile and at which of the 2 closest enemies, plus how to move and attack.
+# Same fights and PPO settings as ravager_bile.yaml, so the runs compare directly.
+#
+#   python -m tools.rl.train --config tools/rl/configs/ravager_hybrid.yaml --timesteps 2000000 --out models/ravager-hybrid
+
+map: MicroTraining410
+decision_interval: 3         # RavagerTask's movement scale and bile lead assume 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.ravager_task:RavagerHybridTask
+
+enemy:
+  mode: scripted
+  race: Zerg
+
+scenarios:
+  - name: ravager_1v1_chase
+    learner: {Ravager: 1}
+    enemy: {Roach: 1}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+  - name: ravager_1v1_dodge
+    learner: {Ravager: 1}
+    enemy: {Roach: 1}
+    bile_dodge_reaction: [0.3, 0.9]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+  - name: ravager_1v1_leash
+    learner: {Ravager: 1}
+    enemy: {Roach: 1}
+    enemy_behavior: leash
+    leash: [8, 14]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+  - name: ravager_1v2_chase
+    learner: {Ravager: 1}
+    enemy: {Roach: 2}
+    distance: [10, 10]
+    time_limit: 160
+    weight: 2
+
+  - name: ravager_1v2_dodge
+    learner: {Ravager: 1}
+    enemy: {Roach: 2}
+    bile_dodge_reaction: [0.3, 0.9]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 2
+
+  - name: ravager_1v2_leash
+    learner: {Ravager: 1}
+    enemy: {Roach: 2}
+    enemy_behavior: leash
+    leash: [8, 14]
+    distance: [10, 10]
+    time_limit: 160
+    weight: 1
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
