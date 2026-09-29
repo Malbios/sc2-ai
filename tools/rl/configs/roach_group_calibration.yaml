@@ -1,5 +1,6 @@
-# Roaches against marines and marauders of the same cost, no upgrades on either side, against
-# an enemy that stands and shoots (chase) or steps back while reloading (kite), at three sizes.
+# Roaches against more marines and marauders than they cost, no upgrades on either side, at
+# three sizes. At equal cost attack-move won every fight (the bio has no stim), and a kiting
+# enemy made no difference (it only steps back from targets within 3; roaches shoot from 4).
 # For measuring the attack rule first, to pick sizes where attack-move neither always wins nor
 # always loses; then the rules on those sizes show whether micro matters in this fight:
 #
@@ -17,42 +18,39 @@ enemy:
   race: Terran
 
 scenarios:
-  - name: roaches_6v8_chase
-    learner: {Roach: 6}
-    enemy: {Marine: 6, Marauder: 2}
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: roaches_6v8_kite
-    learner: {Roach: 6}
-    enemy: {Marine: 6, Marauder: 2}
-    enemy_behavior: kite
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: roaches_8v11_chase
+  - name: roaches_8v13
     learner: {Roach: 8}
-    enemy: {Marine: 8, Marauder: 3}
+    enemy: {Marine: 9, Marauder: 4}
     distance: [10, 12]
     time_limit: 60
 
-  - name: roaches_8v11_kite
+  - name: roaches_8v14
     learner: {Roach: 8}
-    enemy: {Marine: 8, Marauder: 3}
-    enemy_behavior: kite
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: roaches_10v14_chase
-    learner: {Roach: 10}
     enemy: {Marine: 10, Marauder: 4}
     distance: [10, 12]
     time_limit: 60
 
-  - name: roaches_10v14_kite
+  - name: roaches_10v16
     learner: {Roach: 10}
-    enemy: {Marine: 10, Marauder: 4}
-    enemy_behavior: kite
+    enemy: {Marine: 12, Marauder: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_10v17
+    learner: {Roach: 10}
+    enemy: {Marine: 12, Marauder: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_12v19
+    learner: {Roach: 12}
+    enemy: {Marine: 14, Marauder: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_12v21
+    learner: {Roach: 12}
+    enemy: {Marine: 15, Marauder: 6}
     distance: [10, 12]
     time_limit: 60
 

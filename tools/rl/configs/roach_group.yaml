@@ -1,0 +1,38 @@
+# The two roach group fights picked by calibration (roach_group_calibration.yaml, the attack rule
+# at 50 fights): 10 roaches win 60% against 12 marines and 4 marauders, 12 roaches 16% against 14
+# and 5. For the headroom check, every rule at 200 fights:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_group.yaml --baseline smart --episodes 200
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_group_task:RoachGroupTask
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: roaches_10v16
+    learner: {Roach: 10}
+    enemy: {Marine: 12, Marauder: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_12v19
+    learner: {Roach: 12}
+    enemy: {Marine: 14, Marauder: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
