@@ -439,6 +439,12 @@ every zergling decides for itself (group task). Rules, 50 to 100 fights each:
   kiting marines (22 and 26%, and 18 to 25% in the earlier run's best checkpoints, against
   attack-move's 12% from 50 fights), disappeared when measured again with 200 fights each:
   attack-move 16%, the two stable models 20% and 16%.
+- **Adding the variety bonus back to the stable setting brought the collapse back.** ent_coef
+  0.003 and 0.01, each run twice, 5M slot decisions: all four peaked at 33 to 40% training wins
+  (250k to 500k) and none held (end 0 to 26%). At 200 fights on 8v6 and 12v9, three of the final
+  models won nothing (the zerglings stayed away from the marines, some fights timing out), and
+  the best one lost to attack-move everywhere (8v6 17 / 18% against 28 / 26%, 12v9 4 / 12%
+  against 3 / 26%).
 - **So far, group RL at our scale reached attack-move and no further.** Training can now be kept
   stable, but only by making the model change slowly and explore little, which leaves it where
   its attack-biased start put it.

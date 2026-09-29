@@ -56,7 +56,8 @@ Several learner units already share one model in a fight, each deciding for itse
       an attack-biased start, training only on living units and per-unit reward, the best
       checkpoints played like attack-move, then training collapsed. PPO's stability settings
       stop the collapse (both seeds), but those models also play like attack-move; reward
-      scaling makes the collapse worse.
+      scaling makes the collapse worse, and so does a variety bonus on top of the stable
+      settings (ent_coef 0.003 and 0.01, two seeds each).
 - [ ] Then possibly banelings, mutalisks
 
 ## 4. The bot itself
