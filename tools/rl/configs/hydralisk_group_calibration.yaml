@@ -1,0 +1,45 @@
+# Hydralisks with Muscular Augments and Grooved Spines against zealots without Charge that chase,
+# at three sizes. For measuring the attack rule first, to pick sizes where attack-move neither
+# always wins nor always loses; then every rule on those sizes (the headroom survey):
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_group_calibration.yaml --baseline attack --episodes 50
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.hydralisk_group_task:HydraliskGroupTask
+  upgrades: [EvolveMuscularAugments, EvolveGroovedSpines]
+
+enemy:
+  mode: scripted
+  race: Protoss
+
+scenarios:
+  - name: hydras_8v8
+    learner: {Hydralisk: 8}
+    enemy: {Zealot: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydras_8v10
+    learner: {Hydralisk: 8}
+    enemy: {Zealot: 10}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydras_8v12
+    learner: {Hydralisk: 8}
+    enemy: {Zealot: 12}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

@@ -1030,6 +1030,44 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         self.assertLessEqual(largest, self.task.group_slots)
 
 
+class HydraliskGroupTaskTest(unittest.TestCase):
+    """A hydralisk at (20.5, 20.5) with a zealot 2.5 to its east."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+
+        from tools.rl.examples.hydralisk_group_task import HydraliskGroupTask
+
+        self.task = HydraliskGroupTask()
+        self.task.start_game(SimpleNamespace(pathing_grid=StandInGrid(40, 40)))
+        self.hydra = StandInFighter(1, 20.5, 20.5, health=90, health_max=90, ground_range=6)
+        self.zealot = StandInFighter(10, 23.0, 20.5, health=150, health_max=150, dps=18.6, ground_range=0.1)
+
+    def rule(self, name):
+        return self.task.baseline_policies()[name](self.task.observe(self.hydra, [], [self.zealot]))
+
+    def test_kite_rules(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, ATTACK_DANGEROUS, FIRST_MOVE
+
+        west = FIRST_MOVE + 4
+        self.assertEqual(sorted(self.task.baseline_policies()),
+                         ["attack", "kite_2", "kite_3", "kite_5", "kite_threat_2", "kite_threat_3", "kite_threat_5"])
+        self.assertEqual(self.rule("kite_threat_3"), ATTACK_DANGEROUS)  # weapon ready
+        self.hydra.weapon_cooldown = 5.0
+        self.assertEqual(self.rule("kite_3"), west)
+        self.assertEqual(self.rule("kite_threat_3"), west)
+        self.assertEqual(self.rule("kite_2"), ATTACK_CLOSEST)  # the zealot is 2.5 away
+
+    def test_group_slots_cover_the_largest_calibration_group(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/hydralisk_group_calibration.yaml")
+        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+        self.assertLessEqual(largest, self.task.group_slots)
+
+
 class DecideEveryTest(unittest.TestCase):
     def test_decides_on_the_first_and_every_kth_step(self):
         from types import SimpleNamespace
