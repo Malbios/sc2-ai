@@ -1,6 +1,7 @@
 # Hydralisks with Muscular Augments and Grooved Spines against zealots without Charge that chase,
-# at three sizes. For measuring the attack rule first, to pick sizes where attack-move neither
-# always wins nor always loses; then every rule on those sizes (the headroom survey):
+# at three sizes (attack-move won 26% against 8 zealots and none against 10 or 12). For measuring
+# the attack rule first, to pick sizes where attack-move neither always wins nor always loses;
+# then every rule on those sizes (the headroom survey):
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_group_calibration.yaml --baseline attack --episodes 50
 
@@ -17,21 +18,21 @@ enemy:
   race: Protoss
 
 scenarios:
-  - name: hydras_8v8
+  - name: hydras_8v6
     learner: {Hydralisk: 8}
-    enemy: {Zealot: 8}
+    enemy: {Zealot: 6}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydras_8v10
+  - name: hydras_8v7
     learner: {Hydralisk: 8}
-    enemy: {Zealot: 10}
+    enemy: {Zealot: 7}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydras_8v12
+  - name: hydras_8v9
     learner: {Hydralisk: 8}
-    enemy: {Zealot: 12}
+    enemy: {Zealot: 9}
     distance: [10, 12]
     time_limit: 60
 
