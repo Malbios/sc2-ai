@@ -1,0 +1,45 @@
+# The harder roach and ravager fight (roach_ravager_hard_calibration.yaml): the tuned bile rule won
+# 56 / 28% (standing in bile / dodging, 50 fights) against 14 marines and 3 marauders, which leaves
+# room above it. For re-tuning the rule, and for training a model warm-started from the 10M run:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_ravager_hard.yaml --baseline bile_dangerous_lead_0 --episodes 200
+#   python -m tools.rl.train --config tools/rl/configs/roach_ravager_hard.yaml --out models/roach-ravager-hard \
+#       --timesteps 5000000 --n-envs 4 --warm-start models/roach-ravager-10m/final.zip
+
+map: MicroTraining410
+decision_interval: 3         # bile's lead assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_ravager_group_task:RoachRavagerGroupTask
+  decide_every: 1            # bile's lead assumes one decision per 3 game frames
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: rr_hard
+    learner: {Roach: 6, Ravager: 2}
+    enemy: {Marine: 14, Marauder: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: rr_hard_dodge
+    learner: {Roach: 6, Ravager: 2}
+    enemy: {Marine: 14, Marauder: 3}
+    bile_dodge_reaction: [0.3, 0.6]
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0001
+  learning_rate_end: 0.00001
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 4
+  gamma: 0.999
+  ent_coef: 0.0
+  clip_range: 0.1
+  target_kl: 0.02
+  net_arch: [128, 128]
