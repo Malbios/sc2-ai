@@ -555,6 +555,11 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   credited to ravagers while their bile may land. Sampled actions, 200 fights: 2M 78 / 64%,
   final 87 / 74%, against the tuned rule's 96 / 87%. Still rising at the end (+9 / +10 points
   from 2M to 3M) while the learning rate had decayed to its minimum.
+- **With 10M slot decisions it reached the tuned rule, not past it.** Same settings, a slower
+  learning rate decay (over 10M), 1 h 40 min. Sampled actions, 200 fights: 3M 88 / 68%, 6M
+  88 / 71%, 8M 92 / 90%, final 95 / 88%, against the tuned rule's 96 / 87%. Level with the rule
+  within noise, far from the +10 the bar asks. The first model to learn a decisive skill from
+  scratch and match a tuned rule in a group fight; like every earlier run, it stopped there.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
