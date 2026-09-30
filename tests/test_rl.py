@@ -1247,6 +1247,38 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         self.assertEqual([target for _, _, target in self.ravager.commands],
                          [Point2((25.1, 20.5)), Point2((20.5, 28.5)), Point2((20.5, 28.5))])
 
+    def test_es_starting_policy_is_the_clump_rule(self):
+        from tools.rl.es import THETA0, bile_policy
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS
+        from tools.rl.examples.roach_ravager_group_task import bile_action, bile_seen_action
+
+        rule, policy = self.task.baseline_policies()["bile_closest_lead_0_clump_1"], bile_policy(THETA0)
+        same = {ATTACK_DANGEROUS: ATTACK_DANGEROUS, bile_action("closest", 0.0): bile_seen_action(0)}
+        beside = StandInFighter(12, 25.5, 22.0, health=45, health_max=45, dps=10.0, ground_range=5)
+        cases = {"not ready": self.enemies + [beside]}
+        observations = {"not ready": self.task.observe(self.ravager, [], cases["not ready"])}
+        self.ready()
+        observations["alone"] = self.task.observe(self.ravager, [], self.enemies)
+        observations["clumped"] = self.task.observe(self.ravager, [], self.enemies + [beside])
+        self.marine.position, self.marauder.position = Point2((30.5, 20.5)), Point2((20.5, 30.5))
+        beside.position = Point2((30.5, 22.0))
+        observations["out of range"] = self.task.observe(self.ravager, [], self.enemies + [beside])
+        for name, observation in observations.items():
+            with self.subTest(name):
+                self.assertEqual(policy(observation), same[rule(observation)])
+        self.assertEqual(policy(observations["clumped"]), bile_seen_action(0))
+
+    def test_es_update_climbs_a_known_fitness(self):
+        from tools.rl.es import candidates_for, es_update
+
+        rng = np.random.default_rng(0)
+        target, theta = np.array([1.0, -2.0, 0.5]), np.zeros(3)
+        for _ in range(300):
+            directions = rng.standard_normal((4, 3))
+            scores = np.array([-np.sum((c - target) ** 2) for c in candidates_for(theta, directions)])
+            theta = es_update(theta, directions, scores)
+        self.assertLess(np.linalg.norm(theta - target), 0.3)
+
     def test_clump_sizes(self):
         from tools.rl.examples.roach_ravager_group_task import clump_sizes
 
