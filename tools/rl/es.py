@@ -7,8 +7,9 @@ exactly at the rule:
   features), and a ravager with bile ready biles the best one when its score is above 0.
   Everything else (shooting the most dangerous in range, bile where the target is now) stays
   the clump rule's. THETA0 is the clump rule.
-- kite (mutalisk fight): one score decides whether to back off, another whether to attack the
-  weakest in range instead of the closest. KITE_THETA0 is kite_4.5.
+- kite (mutalisk fight), kite_roach, kite_hydra: one score decides whether to back off, another
+  whether to attack the weakest in range instead of the closest. KITE_THETA0 is the kite rule at
+  the family's distance (kite_4.5 for mutalisks).
 
     python -m tools.rl.es search --config tools/rl/configs/roach_ravager_hard.yaml --out models/es-bile
     python -m tools.rl.es evaluate --config tools/rl/configs/roach_ravager_hard.yaml --theta models/es-bile/theta.json --fights 200
@@ -21,6 +22,7 @@ import multiprocessing
 import multiprocessing.util
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -82,36 +84,39 @@ def bile_policy(theta: np.ndarray) -> Callable[[np.ndarray], int]:
     return policy
 
 
-KITE_FEATURES = ("bias", "cooling", "marine within 4.5", "cooldown left", "closest distance", "life",
-                 "marines within 6", "allies center distance")
-KITE_DISTANCE = 4.5
-CROWD_DISTANCE = 6.0
-# Back off: bias -1.5, cooling +1, within 4.5 +1 (kite_4.5); attack the weakest: never.
+KITE_FEATURES = ("bias", "cooling", "enemy within D", "cooldown left", "closest distance", "life",
+                 "enemies within D + 1.5", "allies center distance")
+MUTALISK_KITE_DISTANCE = 4.5
+ROACH_KITE_DISTANCE = 5.0  # center to center: a roach's range 4 plus both radii
+HYDRALISK_KITE_DISTANCE = 3.0
+CROWD_MARGIN = 1.5
+# Back off: bias -1.5, cooling +1, within D +1 (the kite rule at D); attack the weakest: never.
 KITE_THETA0 = np.array([-1.5, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                         -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 
-def kite_features(observation: np.ndarray) -> np.ndarray:
-    """The KITE_FEATURES of one mutalisk's observation (with at least one marine in sight)."""
+def kite_features(observation: np.ndarray, distance: float) -> np.ndarray:
+    """The KITE_FEATURES of one unit's observation (with at least one enemy in sight), D being
+    `distance`."""
     closest = closest_enemy_distance(observation)
     distances = [observation[start + 3] * DISTANCE_SCALE
                  for start in range(FIRST_ENEMY, FIRST_ALLY, ENEMY_INPUTS) if observation[start]]
     center = allies_center(observation)
-    return np.array([1.0, 1.0 if observation[COOLDOWN] > 0 else 0.0, 1.0 if closest <= KITE_DISTANCE else 0.0,
+    return np.array([1.0, 1.0 if observation[COOLDOWN] > 0 else 0.0, 1.0 if closest <= distance else 0.0,
                      observation[COOLDOWN], closest / DISTANCE_SCALE, observation[LIFE],
-                     sum(d <= CROWD_DISTANCE for d in distances) / 4,
+                     sum(d <= distance + CROWD_MARGIN for d in distances) / 4,
                      center.length / DISTANCE_SCALE if center is not None else 0.0], dtype=np.float32)
 
 
-def kite_policy(theta: np.ndarray) -> Callable[[np.ndarray], int]:
-    """Back off (step away from the marines) when the first score is above 0; otherwise attack,
+def kite_policy(theta: np.ndarray, distance: float) -> Callable[[np.ndarray], int]:
+    """Back off (step away from the enemies) when the first score is above 0; otherwise attack,
     the weakest in range when the second score is above 0, else the closest."""
     back_off, weakest = theta[:len(KITE_FEATURES)], theta[len(KITE_FEATURES):]
 
     def policy(observation: np.ndarray) -> int:
         if not observation[FIRST_ENEMY]:
             return ATTACK_CLOSEST
-        features = kite_features(observation)
+        features = kite_features(observation, distance)
         if features @ back_off > 0:
             return step_away(observation)
         return ATTACK_WEAKEST if features @ weakest > 0 else ATTACK_CLOSEST
@@ -127,7 +132,10 @@ class Family:
 
 FAMILIES = {
     "bile": Family(THETA0, bile_policy, 15),
-    "kite": Family(KITE_THETA0, kite_policy, 20),  # more weights: more fights against the noise
+    # more weights than bile: more fights against the noise, 40 per candidate in all
+    "kite": Family(KITE_THETA0, partial(kite_policy, distance=MUTALISK_KITE_DISTANCE), 20),
+    "kite_roach": Family(KITE_THETA0, partial(kite_policy, distance=ROACH_KITE_DISTANCE), 20),
+    "kite_hydra": Family(KITE_THETA0, partial(kite_policy, distance=HYDRALISK_KITE_DISTANCE), 40),
 }
 
 

@@ -13,9 +13,11 @@ from tools.rl.examples.group_fight_task import (
     GroupFightTask,
     Rule,
     kite_rule,
+    life_kite_rule,
 )
 
 KITE_DISTANCES = (2.0, 3.0, 5.0)
+LIFE_KITE_DISTANCES = (3.0, 5.0)
 
 
 class HydraliskGroupTask(GroupFightTask):
@@ -26,4 +28,6 @@ class HydraliskGroupTask(GroupFightTask):
         for distance in KITE_DISTANCES:
             rules[f"kite_{distance:g}"] = lambda observation, d=distance: kite_rule(observation, d)
             rules[f"kite_threat_{distance:g}"] = lambda observation, d=distance: kite_rule(observation, d, ATTACK_DANGEROUS)
+        for distance in LIFE_KITE_DISTANCES:
+            rules[f"life_kite_{distance:g}"] = lambda observation, d=distance: life_kite_rule(observation, d)
         return rules

@@ -13,15 +13,14 @@ from sc2.position import Point2
 from tools.rl.examples.free_kite_task import RAY_LENGTH
 from tools.rl.examples.group_fight_task import (
     ATTACK_CLOSEST,
-    COOLDOWN,
     LIFE,
     GroupFightTask,
     Rule,
     allies_center,
     closest_enemy_distance,
     kite_rule,
+    life_kite_rule,
     move_toward,
-    step_away,
 )
 
 KITE_DISTANCE = 6.0  # a marine's range plus a margin
@@ -66,7 +65,7 @@ class MutaliskGroupTask(GroupFightTask):
             "clump_kite_6_r3": lambda observation: clump_kite_rule(observation, KITE_DISTANCE, 3.0),
             **{f"hurt_kite_{life:g}": lambda observation, life=life: hurt_kite_rule(observation, life)
                for life in HURT_LIFE_SHARES},
-            "life_kite": life_kite_rule,
+            "life_kite": lambda observation: life_kite_rule(observation, SHORT_KITE_DISTANCE),
         }
 
 
@@ -75,15 +74,6 @@ def hurt_kite_rule(observation: np.ndarray, hurt_below: float) -> int:
     stepping back hands the marines' fire (at the closest target) to a healthy one."""
     if observation[LIFE] < hurt_below:
         return kite_rule(observation, SHORT_KITE_DISTANCE)
-    return ATTACK_CLOSEST
-
-
-def life_kite_rule(observation: np.ndarray) -> int:
-    """Back off while a marine is within SHORT_KITE_DISTANCE and more of the cooldown is left than
-    of the own life: healthy mutalisks only step back right after shooting, hurt ones for most of
-    the cooldown (the boundary evolution strategies found, simplified)."""
-    if closest_enemy_distance(observation) <= SHORT_KITE_DISTANCE and observation[COOLDOWN] > observation[LIFE]:
-        return step_away(observation)
     return ATTACK_CLOSEST
 
 

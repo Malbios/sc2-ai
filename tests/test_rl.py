@@ -1021,8 +1021,32 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.roach.health = 40
         self.assertEqual(self.smart([self.marine]), west)
         self.assertEqual(self.smart([self.far_marine]), ATTACK_DANGEROUS)
-        self.assertEqual({name: rule(None) for name, rule in self.task.baseline_policies().items() if name != "smart"},
+        self.assertEqual({name: rule(None) for name, rule in self.task.baseline_policies().items()
+                          if name in ("attack", "focus", "threat")},
                          {"attack": 0, "focus": 1, "threat": 2})
+
+    def test_life_kite_backs_off_only_with_an_enemy_within_its_distance(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
+
+        west = FIRST_MOVE + 4
+        self.roach.health = 72  # half life
+        self.roach.weapon_cooldown = 24.0  # 75% of the cooldown left
+        near_marine = StandInFighter(10, 26.5, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)  # 6 away
+        self.assertEqual(self.task.baseline_policies()["life_kite_7"](self.task.observe(self.roach, [], [near_marine])), west)
+        self.assertEqual(self.task.baseline_policies()["life_kite_5"](self.task.observe(self.roach, [], [near_marine])),
+                         ATTACK_CLOSEST)
+
+    def test_es_kite_roach_starting_policy_is_the_kite_rule_at_5(self):
+        from tools.rl.es import FAMILIES, KITE_THETA0
+        from tools.rl.examples.group_fight_task import kite_rule
+
+        policy = FAMILIES["kite_roach"].policy(KITE_THETA0)
+        self.roach.weapon_cooldown = 10.0
+        for distance in (4.5, 5.5):
+            marine = StandInFighter(10, 20.5 + distance, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)
+            observation = self.task.observe(self.roach, [], [marine])
+            with self.subTest(distance=distance):
+                self.assertEqual(policy(observation), kite_rule(observation, 5.0))
 
     def test_group_slots_cover_the_largest_calibration_group(self):
         from pathlib import Path
@@ -1162,7 +1186,8 @@ class HydraliskGroupTaskTest(unittest.TestCase):
 
         west = FIRST_MOVE + 4
         self.assertEqual(sorted(self.task.baseline_policies()),
-                         ["attack", "kite_2", "kite_3", "kite_5", "kite_threat_2", "kite_threat_3", "kite_threat_5"])
+                         ["attack", "kite_2", "kite_3", "kite_5", "kite_threat_2", "kite_threat_3", "kite_threat_5",
+                          "life_kite_3", "life_kite_5"])
         self.assertEqual(self.rule("kite_threat_3"), ATTACK_DANGEROUS)  # weapon ready
         self.hydra.weapon_cooldown = 5.0
         self.assertEqual(self.rule("kite_3"), west)
