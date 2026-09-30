@@ -560,6 +560,14 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   88 / 71%, 8M 92 / 90%, final 95 / 88%, against the tuned rule's 96 / 87%. Level with the rule
   within noise, far from the +10 the bar asks. The first model to learn a decisive skill from
   scratch and match a tuned rule in a group fight; like every earlier run, it stopped there.
+- **With room above the rule, the model still stopped at the rule.** A harder fight, 14 marines
+  and 3 marauders (a 4th marauder swung it too far). Re-tuned at 200 fights (standing / dodging):
+  attack 0 / 0%, closest lead 0.25 54 / 38%, closest lead 0 80 / 48%, most dangerous lead 0
+  80 / 50%, closest lead 0 only at clumps of 2+ 78 / 55% (the bar). The 10M model as it was:
+  70 / 54%. Warm-started from it for 5M slot decisions (52 minutes): 2M 78 / 58%, 4M 76 / 54%,
+  final 74 / 53%. Level with the rule, falling slightly with more training; the bar asked for
+  +10 in one fight. Calibration at 50 fights had given the rule only 56 / 28% here, well below
+  its 200-fight result; unexplained, so check sizes at 200 fights before relying on them.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
