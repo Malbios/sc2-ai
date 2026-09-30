@@ -579,6 +579,20 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   speed), and generation scores swung with the fights' noise: with 30 fights per candidate, the
   search sees little difference between neighbouring bile rules. Near the rule, the fight's
   result doesn't depend much on the bile choice beyond what the rule already does.
+- **Evolution strategies found a much better mutalisk rule (the first pass of the bar).** The
+  mutalisk fight (8 vs 14 marines, standing / kiting), starting from kite_4.5 written as weights
+  (a back-off score and a "shoot the weakest" score over 8 features: bias, cooling, a marine
+  within 4.5, cooldown left, closest distance, own life, marines within 6, allies' center
+  distance). 20 generations, 8 candidates of 40 fights, 33 minutes. The starting weights scored
+  58 / 56% (kite_4.5). The final weights, and the best generation's (13), won 100 / 100% at 200
+  fights, losing 66 to 71% of their life, in 10 s fights instead of 14. What it learned: a
+  healthy mutalisk only steps back right after shooting and otherwise keeps shooting; a hurt one
+  backs off for most of its cooldown (back-off weights: life -0.54, cooldown left +0.58). The
+  marines shoot the closest target, so the hurt one stepping back hands their fire to a healthy
+  one and spreads the damage. "Shoot the weakest" stayed off. Generation averages swung between
+  29 and 99% wins while the best candidate of every generation won nearly everything: the good
+  region is narrow, so neighbouring weights play very differently. A hand rule written from
+  this insight could likely match it; the search is what found it.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few

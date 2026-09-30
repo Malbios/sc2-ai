@@ -77,6 +77,12 @@ Several learner units already share one model in a fight, each deciding for itse
       with room above the rule (clump rule 78 / 55%), warm-started training also stayed level
       (74 to 78 / 53 to 58%). Evolution strategies starting from the rule also stayed within
       noise of it (81 to 85 / 51 to 52%) (design doc).
+- [x] Evolution strategies on the mutalisk fight: from kite_4.5 (58 / 56%) to 100 / 100% in 33
+      minutes. Healthy mutalisks keep shooting, hurt ones back off (design doc). The first
+      learned policy to pass the bar.
+- [ ] Check it: a hand rule written from what the search found ("hurt mutalisks back off,
+      healthy ones shoot"), and the learned weights against other marine counts and the
+      built-in AI.
 
 ## 4. The bot itself
 
