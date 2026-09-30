@@ -1,6 +1,8 @@
 # A harder roach and ravager fight: the tuned bile rule (bile the most dangerous in range where it
 # is now) won 96 / 87% (standing in bile / dodging) against 12 marines and 3 marauders, which
-# leaves no room above it. More bio, for picking the size where it wins about half:
+# leaves no room above it. More bio, for picking the size where it wins about half. A 4th marauder
+# swings it too far (12 marines: 50 / 10%, 13: 14 / 0%, 12 marines and 5 marauders or more: 0 to
+# 2%), so these add marines instead:
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/roach_ravager_hard_calibration.yaml --baseline bile_dangerous_lead_0 --episodes 50
 
@@ -17,54 +19,41 @@ enemy:
   race: Terran
 
 scenarios:
-  - name: rr_hard_12m4M
+  - name: rr_hard_13m3M
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 12, Marauder: 4}
+    enemy: {Marine: 13, Marauder: 3}
     distance: [10, 12]
     time_limit: 60
 
-  - name: rr_hard_12m4M_dodge
+  - name: rr_hard_13m3M_dodge
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 12, Marauder: 4}
+    enemy: {Marine: 13, Marauder: 3}
     bile_dodge_reaction: [0.3, 0.6]
     distance: [10, 12]
     time_limit: 60
 
-  - name: rr_hard_13m4M
+  - name: rr_hard_14m3M
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 13, Marauder: 4}
+    enemy: {Marine: 14, Marauder: 3}
     distance: [10, 12]
     time_limit: 60
 
-  - name: rr_hard_13m4M_dodge
+  - name: rr_hard_14m3M_dodge
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 13, Marauder: 4}
+    enemy: {Marine: 14, Marauder: 3}
     bile_dodge_reaction: [0.3, 0.6]
     distance: [10, 12]
     time_limit: 60
 
-  - name: rr_hard_12m5M
+  - name: rr_hard_15m3M
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 12, Marauder: 5}
+    enemy: {Marine: 15, Marauder: 3}
     distance: [10, 12]
     time_limit: 60
 
-  - name: rr_hard_12m5M_dodge
+  - name: rr_hard_15m3M_dodge
     learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 12, Marauder: 5}
-    bile_dodge_reaction: [0.3, 0.6]
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: rr_hard_14m5M
-    learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 14, Marauder: 5}
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: rr_hard_14m5M_dodge
-    learner: {Roach: 6, Ravager: 2}
-    enemy: {Marine: 14, Marauder: 5}
+    enemy: {Marine: 15, Marauder: 3}
     bile_dodge_reaction: [0.3, 0.6]
     distance: [10, 12]
     time_limit: 60
