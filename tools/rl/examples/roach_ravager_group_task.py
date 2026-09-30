@@ -24,6 +24,7 @@ from tools.rl.examples.group_fight_task import (
     FIRST_ENEMY,
     FIRST_EXTRA_ACTION,
     INPUTS,
+    SEEN_ENEMIES,
     GroupFightTask,
     Rule,
     closest_enemy_distance,
@@ -49,9 +50,17 @@ def bile_action(target: str, lead: float) -> int:
     return FIRST_EXTRA_ACTION + BILE_TARGETS.index(target) * len(BILE_LEADS) + BILE_LEADS.index(lead)
 
 
+# Then one more bile action per seen enemy: bile the i-th closest where it is now.
+FIRST_BILE_SEEN = bile_action(BILE_TARGETS[-1], BILE_LEADS[-1]) + 1
+
+
+def bile_seen_action(index: int) -> int:
+    return FIRST_BILE_SEEN + index
+
+
 class RoachRavagerGroupTask(GroupFightTask):
     observation_space = spaces.Box(-np.inf, np.inf, shape=(BILE_READY + 1,), dtype=np.float32)
-    action_space = spaces.Discrete(FIRST_EXTRA_ACTION + len(BILE_TARGETS) * len(BILE_LEADS))
+    action_space = spaces.Discrete(FIRST_BILE_SEEN + SEEN_ENEMIES)
     wants_abilities = True
     cooldown_scale = 32.0  # a roach's; a ravager's is 26
 
@@ -95,11 +104,17 @@ class RoachRavagerGroupTask(GroupFightTask):
             super().apply(unit, action, allies, enemies)
         elif unit.type_id != UnitTypeId.RAVAGER:
             super().apply(unit, ATTACK_CLOSEST, allies, enemies)
+        elif action >= FIRST_BILE_SEEN:
+            by_distance = _by_distance(unit, enemies)
+            self._cast_bile(unit, by_distance[min(action - FIRST_BILE_SEEN, len(by_distance) - 1)], 0.0)
         else:
             target_index, lead_index = divmod(action - FIRST_EXTRA_ACTION, len(BILE_LEADS))
             whom, lead = BILE_TARGETS[target_index], BILE_LEADS[lead_index]
-            self._bile_casts[unit.tag] = self._game_steps
-            unit(BILE, self.bile_point(unit, self._bile_target(unit, whom, enemies), lead))
+            self._cast_bile(unit, self._bile_target(unit, whom, enemies), lead)
+
+    def _cast_bile(self, unit: Unit, target: Unit, lead: float) -> None:
+        self._bile_casts[unit.tag] = self._game_steps
+        unit(BILE, self.bile_point(unit, target, lead))
 
     def bile_point(self, unit: Unit, target: Unit, lead: float) -> Point2:
         movement = self._movement.get((unit.tag, target.tag), Point2((0, 0)))
@@ -135,8 +150,13 @@ def bile_rule(observation: np.ndarray, bile: int, otherwise: int, clump: int = 0
 
 def clump_size(observation: np.ndarray) -> int:
     """How many other seen enemies are within CLUMP_RADIUS of the closest one."""
+    sizes = clump_sizes(observation)
+    return sizes[0] if sizes else 0
+
+
+def clump_sizes(observation: np.ndarray) -> list[int]:
+    """For each seen enemy (closest first), how many other seen enemies are within CLUMP_RADIUS."""
     positions = [Point2(observation[start + 1:start + 3]) * DISTANCE_SCALE
                  for start in range(FIRST_ENEMY, FIRST_ALLY, ENEMY_INPUTS) if observation[start]]
-    if not positions:
-        return 0
-    return sum(1 for position in positions[1:] if position.distance_to(positions[0]) <= CLUMP_RADIUS)
+    return [sum(1 for other in positions if other is not position and other.distance_to(position) <= CLUMP_RADIUS)
+            for position in positions]

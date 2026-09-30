@@ -1177,9 +1177,10 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         from sc2.ids.ability_id import AbilityId
 
         from tools.rl.examples.ravager_task import BILE_FLIGHT_SECONDS, DECISION_SECONDS
+        from tools.rl.examples.group_fight_task import SEEN_ENEMIES
         from tools.rl.examples.roach_ravager_group_task import BILE_LEADS, BILE_TARGETS, bile_action
 
-        self.assertEqual(self.task.action_space.n, bile_action(BILE_TARGETS[-1], BILE_LEADS[-1]) + 1)
+        self.assertEqual(self.task.action_space.n, bile_action(BILE_TARGETS[-1], BILE_LEADS[-1]) + 1 + SEEN_ENEMIES)
         self.task.observe(self.ravager, [], self.enemies)
         self.marine.position = Point2((25.1, 20.5))  # moved 0.4 toward the ravager
         self.task.observe(self.ravager, [], self.enemies)
@@ -1234,6 +1235,24 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         for _ in range(BILE_CREDIT_STEPS - 1):
             self.assertEqual(self.task.share_team_reward(4.0, units), {1: 4.0})  # nobody fired: bile's
         self.assertEqual(self.task.share_team_reward(4.0, units), {1: 2.0, 2: 2.0})  # no one: all share
+
+    def test_bile_the_ith_closest_where_it_is(self):
+        from tools.rl.examples.roach_ravager_group_task import bile_seen_action
+
+        self.task.observe(self.ravager, [], self.enemies)
+        self.marine.position = Point2((25.1, 20.5))  # moving: lead 0 ignores it
+        self.task.observe(self.ravager, [], self.enemies)
+        for index in (0, 1, 3):  # 3: past the last enemy, the farthest
+            self.task.apply(self.ravager, bile_seen_action(index), [], self.enemies)
+        self.assertEqual([target for _, _, target in self.ravager.commands],
+                         [Point2((25.1, 20.5)), Point2((20.5, 28.5)), Point2((20.5, 28.5))])
+
+    def test_clump_sizes(self):
+        from tools.rl.examples.roach_ravager_group_task import clump_sizes
+
+        beside = StandInFighter(12, 25.5, 22.0, health=45, health_max=45, dps=10.0, ground_range=5)
+        observation = self.task.observe(self.ravager, [], self.enemies + [beside])
+        self.assertEqual(clump_sizes(observation), [1, 1, 0])  # marine and beside, then the marauder
 
     def test_clump_condition(self):
         from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS
