@@ -1074,6 +1074,28 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.rule("kite_6", [], far), ATTACK_CLOSEST)  # 8 away
         self.assertEqual(self.rule("kite_8", [], far), west)
 
+    def test_es_kite_starting_policy_is_kite_4_5(self):
+        from tools.rl.es import FAMILIES, KITE_THETA0
+
+        rule, policy = self.task.baseline_policies()["kite_4.5"], FAMILIES["kite"].policy(KITE_THETA0)
+        cases = {"no marines": [], "ready, near": [self.marine(10, 9.5, 20.5)]}
+        observations = {name: self.task.observe(self.muta, [], enemies) for name, enemies in cases.items()}
+        self.muta.weapon_cooldown = 10.0
+        observations["cooling, near"] = self.task.observe(self.muta, [], [self.marine(10, 9.5, 20.5)])  # 4 away
+        observations["cooling, far"] = self.task.observe(self.muta, [], [self.marine(10, 13.5, 20.5)])  # 8 away
+        for name, observation in observations.items():
+            with self.subTest(name):
+                self.assertEqual(policy(observation), rule(observation))
+
+    def test_es_kite_attacks_the_weakest_when_its_score_is_positive(self):
+        from tools.rl.es import FAMILIES, KITE_FEATURES, KITE_THETA0
+        from tools.rl.examples.group_fight_task import ATTACK_WEAKEST
+
+        theta = KITE_THETA0.copy()
+        theta[len(KITE_FEATURES)] = 1.0  # the attack decision's bias
+        observation = self.task.observe(self.muta, [], [self.marine(10, 9.5, 20.5)])
+        self.assertEqual(FAMILIES["kite"].policy(theta)(observation), ATTACK_WEAKEST)
+
     def test_clump_regroups_only_out_of_marine_reach(self):
         from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
 
