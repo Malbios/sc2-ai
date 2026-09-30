@@ -568,6 +568,17 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   final 74 / 53%. Level with the rule, falling slightly with more training; the bar asked for
   +10 in one fight. Calibration at 50 fights had given the rule only 56 / 28% here, well below
   its 200-fight result; unexplained, so check sizes at 200 fights before relying on them.
+- **Evolution strategies didn't beat the rule either.** A different kind of method: no per-step
+  rewards, whole fights scored (win + damage dealt - damage taken), starting from the clump rule
+  written as weights (bile the best-scoring seen enemy in range above 0; 8 features: bias,
+  closest, clumped, clump size, distance, life, threat, speed). 20 generations of 8 mirrored
+  candidates, 30 fights each, 6 SC2 games in parallel: 36 minutes (tools/rl/es.py). The
+  starting weights scored 78 / 50% (the rule: 78 / 55%). 200 fights per fight: final weights
+  81 / 51%, best generation (10) 85 / 52%. Within noise of the rule; the bar asked for +10. The
+  weights barely moved (bias -1.5 to -1.3, small positive weights on distance, life, threat and
+  speed), and generation scores swung with the fights' noise: with 30 fights per candidate, the
+  search sees little difference between neighbouring bile rules. Near the rule, the fight's
+  result doesn't depend much on the bile choice beyond what the rule already does.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few

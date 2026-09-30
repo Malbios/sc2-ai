@@ -75,7 +75,8 @@ Several learner units already share one model in a fight, each deciding for itse
       87%, standing in bile / dodging), then train. 3M slot decisions reached 87 / 74% (sampled
       actions); 10M reached 95 / 88%, level with the rule, not past it. In a harder version
       with room above the rule (clump rule 78 / 55%), warm-started training also stayed level
-      (74 to 78 / 53 to 58%) (design doc).
+      (74 to 78 / 53 to 58%). Evolution strategies starting from the rule also stayed within
+      noise of it (81 to 85 / 51 to 52%) (design doc).
 
 ## 4. The bot itself
 
