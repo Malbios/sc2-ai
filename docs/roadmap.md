@@ -80,9 +80,10 @@ Several learner units already share one model in a fight, each deciding for itse
 - [x] Evolution strategies on the mutalisk fight: from kite_4.5 (58 / 56%) to 100 / 100% in 33
       minutes. Healthy mutalisks keep shooting, hurt ones back off (design doc). The first
       learned policy to pass the bar.
-- [ ] Check it: a hand rule written from what the search found ("hurt mutalisks back off,
-      healthy ones shoot"), and the learned weights against other marine counts and the
-      built-in AI.
+- [x] Check it: a one-line hand rule from what the search found (`life_kite`: back off while
+      more cooldown than life is left) matches the learned weights everywhere. Both carry over:
+      15 marines 90 to 100% (old rules 2 to 6%), 16 marines 30 to 44% (0%), the built-in AI 84%
+      (22 to 38%). Nothing wins against 18+ (design doc).
 
 ## 4. The bot itself
 

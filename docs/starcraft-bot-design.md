@@ -593,6 +593,26 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   29 and 99% wins while the best candidate of every generation won nearly everything: the good
   region is narrow, so neighbouring weights play very differently. A hand rule written from
   this insight could likely match it; the search is what found it.
+- **A one-line hand rule matches the search, and both carry over.** `life_kite`: back off while
+  a marine is within 4.5 and more of the cooldown is left than of the own life (the learned
+  boundary, simplified). `hurt_kite_L`: below L of full life kite_4.5, else always shoot. Wins,
+  200 fights per fight (standing / kiting marines; the built-in AI, VeryHard, has one fight):
+
+  | 8 mutalisks vs | attack | kite_4.5 | learned | life_kite | hurt_kite_0.5 |
+  |---|---|---|---|---|---|
+  | 14 marines | 35 / 51% | 58 / 56% | 100 / 100% | 100 / 100% | 100 / 100% |
+  | 15 marines | 4 / 6% | 4 / 2% | 90 / 94% | 97 / 100% | 88 / 80% |
+  | 16 marines | 0 / 0% | 0 / 0% | 30 / 44% | 38 / 38% | 10 / 14% |
+  | 18, 20 marines | 0% | 0% | 0% | 0% | 0% |
+  | built-in AI, 14 marines | 38% | 22% | 84% | 84% | 45% |
+  | built-in AI, 16 marines | 0% | 0% | 2% | 2% | 0% |
+
+  On the 14-marine fights, hurt_kite_0.7 won 100 / 100% and hurt_kite_0.9 92 / 90%; life_kite
+  lost the same share of life as the learned weights (71 / 68%). life_kite matches the learned
+  weights everywhere; the plain "only hurt ones kite" rule is weaker away from the tuned fight.
+  Against the built-in AI the trick holds (+46 points over attack-move), so it doesn't only
+  exploit the scripted enemy's "shoot the closest". The value of the search here was finding
+  the idea; the bot would use the rule.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
