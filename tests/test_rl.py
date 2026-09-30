@@ -1105,14 +1105,40 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.rule("clump_kite_6_r3", ally, [self.marine(10, 15.5, 20.5)]), ATTACK_CLOSEST)
         self.assertEqual(self.rule("clump_kite_6", ally, [self.marine(10, 10.5, 20.5)]), ATTACK_CLOSEST)
 
-    def test_group_slots_cover_the_largest_calibration_group(self):
+    def test_hurt_kite_steps_away_only_when_hurt(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
+
+        west = FIRST_MOVE + 4
+        near = [self.marine(10, 9.5, 20.5)]  # 4 away
+        self.muta.weapon_cooldown = 10.0
+        self.assertEqual(self.rule("hurt_kite_0.5", [], near), ATTACK_CLOSEST)  # full life
+        self.muta.health = 48  # 40% life
+        self.assertEqual(self.rule("hurt_kite_0.5", [], near), west)
+        self.muta.weapon_cooldown = 0.0
+        self.assertEqual(self.rule("hurt_kite_0.5", [], near), ATTACK_CLOSEST)  # weapon ready
+
+    def test_life_kite_backs_off_while_more_cooldown_than_life_is_left(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
+
+        west = FIRST_MOVE + 4
+        near, far = [self.marine(10, 9.5, 20.5)], [self.marine(10, 13.5, 20.5)]
+        self.muta.health = 60  # half life
+        self.muta.weapon_cooldown = 18.0  # 75% of the cooldown left
+        self.assertEqual(self.rule("life_kite", [], near), west)
+        self.assertEqual(self.rule("life_kite", [], far), ATTACK_CLOSEST)  # 8 away
+        self.muta.weapon_cooldown = 6.0  # 25% left
+        self.assertEqual(self.rule("life_kite", [], near), ATTACK_CLOSEST)
+
+    def test_group_slots_cover_the_largest_group_in_every_mutalisk_config(self):
         from pathlib import Path
 
         from tools.rl.config import load_config
 
-        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/mutalisk_group_calibration.yaml")
-        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
-        self.assertLessEqual(largest, self.task.group_slots)
+        for name in ("mutalisk_group_calibration", "mutalisk_group", "mutalisk_group_sizes", "mutalisk_group_builtin"):
+            with self.subTest(name):
+                config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
+                largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+                self.assertLessEqual(largest, self.task.group_slots)
 
 
 class HydraliskGroupTaskTest(unittest.TestCase):

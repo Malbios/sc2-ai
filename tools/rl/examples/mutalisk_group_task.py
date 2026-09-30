@@ -13,15 +13,20 @@ from sc2.position import Point2
 from tools.rl.examples.free_kite_task import RAY_LENGTH
 from tools.rl.examples.group_fight_task import (
     ATTACK_CLOSEST,
+    COOLDOWN,
+    LIFE,
     GroupFightTask,
     Rule,
     allies_center,
     closest_enemy_distance,
     kite_rule,
     move_toward,
+    step_away,
 )
 
 KITE_DISTANCE = 6.0  # a marine's range plus a margin
+SHORT_KITE_DISTANCE = 4.5  # the best kite distance in the headroom survey
+HURT_LIFE_SHARES = (0.5, 0.7, 0.9)
 CLUMP_RADIUS = 1.5
 CLUMP_SAFE_DISTANCE = 7.0  # regrouping only while no marine is this close
 
@@ -53,13 +58,33 @@ class MutaliskGroupTask(GroupFightTask):
     def baseline_policies(self) -> dict[str, Rule]:
         return {
             "attack": lambda observation: ATTACK_CLOSEST,
-            "kite_4.5": lambda observation: kite_rule(observation, 4.5),
+            "kite_4.5": lambda observation: kite_rule(observation, SHORT_KITE_DISTANCE),
             "kite_6": lambda observation: kite_rule(observation, KITE_DISTANCE),
             "kite_8": lambda observation: kite_rule(observation, 8.0),
             "clump_kite_6": lambda observation: clump_kite_rule(observation, KITE_DISTANCE, CLUMP_RADIUS),
             "clump_kite_6_r1": lambda observation: clump_kite_rule(observation, KITE_DISTANCE, 1.0),
             "clump_kite_6_r3": lambda observation: clump_kite_rule(observation, KITE_DISTANCE, 3.0),
+            **{f"hurt_kite_{life:g}": lambda observation, life=life: hurt_kite_rule(observation, life)
+               for life in HURT_LIFE_SHARES},
+            "life_kite": life_kite_rule,
         }
+
+
+def hurt_kite_rule(observation: np.ndarray, hurt_below: float) -> int:
+    """kite_4.5 below `hurt_below` of full life, else always attack the closest: a hurt mutalisk
+    stepping back hands the marines' fire (at the closest target) to a healthy one."""
+    if observation[LIFE] < hurt_below:
+        return kite_rule(observation, SHORT_KITE_DISTANCE)
+    return ATTACK_CLOSEST
+
+
+def life_kite_rule(observation: np.ndarray) -> int:
+    """Back off while a marine is within SHORT_KITE_DISTANCE and more of the cooldown is left than
+    of the own life: healthy mutalisks only step back right after shooting, hurt ones for most of
+    the cooldown (the boundary evolution strategies found, simplified)."""
+    if closest_enemy_distance(observation) <= SHORT_KITE_DISTANCE and observation[COOLDOWN] > observation[LIFE]:
+        return step_away(observation)
+    return ATTACK_CLOSEST
 
 
 def clump_kite_rule(observation: np.ndarray, distance: float, radius: float) -> int:

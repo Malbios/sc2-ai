@@ -1,0 +1,78 @@
+# mutalisk_group.yaml with more marines, to see how far the rules and the evolution strategies
+# weights (8 vs 14 marines) carry over. Attack-move already wins only 2 to 4% against 15.
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_group_sizes.yaml --baseline kite_4.5 --episodes 200
+#   python -m tools.rl.es evaluate --family kite --config tools/rl/configs/mutalisk_group_sizes.yaml --theta models/es-kite/theta.json
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: mutas_8v15_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 15}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v15_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 15}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v16_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 16}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v16_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 16}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v18_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 18}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v18_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 18}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v20_chase
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 20}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v20_kite
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 20}
+    enemy_behavior: kite
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

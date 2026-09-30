@@ -1,0 +1,39 @@
+# The mutalisk fight against the built-in AI's marines, an enemy neither the rules nor the
+# evolution strategies weights were tuned against (they may not simply shoot the closest target).
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_group_builtin.yaml --baseline kite_4.5 --episodes 200
+#   python -m tools.rl.es evaluate --family kite --config tools/rl/configs/mutalisk_group_builtin.yaml --theta models/es-kite/theta.json
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: mutas_8v14_builtin
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 14}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_8v16_builtin
+    learner: {Mutalisk: 8}
+    enemy: {Marine: 16}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
