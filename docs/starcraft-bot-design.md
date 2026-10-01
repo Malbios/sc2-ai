@@ -685,6 +685,22 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   decisions here against 15% against the scripted enemy, where the hard fight gained 9 to 16:
   part of that gain came from the scripted enemy's way of fighting. Bile itself holds up
   (attack-move wins 22 / 0%).
+- **Magic box: spacing decides mutalisks against thors, and rotation loses there.** A thor's
+  anti-air attack (range 10) splashes, so bunched mutalisks get hit together. Built-in AI
+  thors, sizes from calibration (attack-move 26% with 7 mutalisks vs 2 thors, 42% with 11 vs
+  3; 6v2 0%, 10v3 10%, 12v3 80%). Each build, 100 fights per fight, averaged (11v3 / 7v2):
+
+  | rule | 11 vs 3 thors | 7 vs 2 thors |
+  |---|---|---|
+  | attack | 43% | 20% |
+  | life_kite | 3% | 1% |
+  | spread 1 / 1.5 / 2.5 (while cooling, fly away from an ally that close) | 92 / 93 / 83% | 43 / 39 / 27% |
+  | spread 1.5, then life_kite | 91% | 34% |
+
+  Spreading adds 23 to 50 points, and the spacing matters (1 beats 2.5 by 9 and 16), so both
+  headroom bars pass. Rotation is useless here: the thors outrange mutalisks (10 against 3), so
+  stepping back only loses shots; with spreading it costs 2 to 5. The builds again barely
+  differ (within about 10 points of each other per rule). Next: a search starting at spread_1.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few

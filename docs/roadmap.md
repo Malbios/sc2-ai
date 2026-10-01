@@ -96,6 +96,9 @@ Several learner units already share one model in a fight, each deciding for itse
       over life_kite, across all 5 builds; roaches no gain (design doc).
 - [x] Bile fight with rotation against the built-in AI: +2 to +5 points over the bile rules,
       short of the bar (design doc).
+- [x] Magic box headroom check, mutalisks vs built-in AI thors: spreading 1 apart wins 92 / 43%
+      against attack-move's 43 / 20%; the spacing matters; rotation loses (design doc).
+- [ ] A search starting at spread_1, against the built-in AI.
 
 ## 4. The bot itself
 
