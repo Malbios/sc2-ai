@@ -1135,6 +1135,18 @@ class MutaliskGroupTaskTest(unittest.TestCase):
             with self.subTest(name):
                 self.assertEqual(policy(observation), rule(observation))
 
+    def test_es_rotate_mutalisk_starting_policy_is_life_kite(self):
+        from tools.rl.es import FAMILIES, LIFE_KITE_THETA0
+
+        policy, rule = FAMILIES["rotate_mutalisk"].policy(LIFE_KITE_THETA0), self.task.baseline_policies()["life_kite"]
+        self.muta.health = 60  # half life
+        for distance in (4.0, 5.0):
+            for cooldown in (6.0, 18.0):  # 25% and 75% of the cooldown left
+                self.muta.weapon_cooldown = cooldown
+                observation = self.task.observe(self.muta, [], [self.marine(10, 5.5 + distance, 20.5)])
+                with self.subTest(distance=distance, cooldown=cooldown):
+                    self.assertEqual(policy(observation), rule(observation))
+
     def test_es_kite_attacks_the_weakest_when_its_score_is_positive(self):
         from tools.rl.es import FAMILIES, KITE_FEATURES, KITE_THETA0
         from tools.rl.examples.group_fight_task import ATTACK_WEAKEST
