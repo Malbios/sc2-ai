@@ -639,6 +639,23 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
     search moved toward kiting harder and only matched the best kite rule.
   - So the search finds an idea only when it starts near it; once found, the rule carries over
     to other ranged fights.
+- **Rotation follow-ups: no gain on top of bile, no refinement by search, and the roach gain
+  mostly doesn't reach the built-in AI.** 200 fights per fight:
+  - Bile fight with rotation (life_kite within 5, otherwise the bile rule; standing in bile /
+    dodging): the tuned rule 96 / 87% became 100 / 82%; in the hard fight 80 / 50% became
+    72 / 26%, and the clump rule's 78 / 55% became 68 / 34%. Level in the normal fight, 8 to
+    24 points worse in the hard one, worst against dodging bio.
+  - The search starting at life_kite_5 (rotate_roach): start 56 / 28%, final 56 / 29%, best
+    generation (13) 60 / 26%. No refinement.
+  - life_kite_5 measured four times on the roach fight (10v16 / 12v19): 69 / 30, 56 / 28,
+    60 / 30 and 64 / 36%, two through evaluate.py and two through es.py. Same policy; the spread
+    is noise, so 200 fights of one rule can land 13 points apart near 60%. About 62 / 31% in
+    all, still 26 / 22 points above attack-move (36 / 9%).
+  - Other sizes (attack / life_kite_5): 10 vs 10 + 4 98 / 100%, 10 vs 14 + 4 0 / 5%, 12 vs
+    12 + 5 80 / 90%, 12 vs 16 + 5 0 / 2%. Built-in AI (VeryHard): 10v16 10 / 14%, 12v19 0 / 0%.
+    The sizes picked were mostly at 0 or 100% already; where there's room (12 vs 17) rotation
+    adds 10 points. Against the built-in AI it adds 4, within noise. Unlike the mutalisk rule,
+    the roach gain may depend on the scripted enemy shooting the closest target.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few

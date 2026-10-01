@@ -88,6 +88,9 @@ Several learner units already share one model in a fight, each deciding for itse
       (the fight the headroom check called "no room"); the search, started from kiting, ended
       at attack-move. Hydralisks vs zealots: rotation loses to kiting against melee, the search
       only matched the kite rule (design doc).
+- [x] Rotation follow-ups: rotation on top of bile is level or worse (8 to 24 points worse in
+      the hard fight); the search starting at life_kite_5 didn't refine it; the roach rule adds
+      10 points at one other size and nothing measurable against the built-in AI (design doc).
 
 ## 4. The bot itself
 
