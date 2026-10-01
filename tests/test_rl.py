@@ -1036,6 +1036,30 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.task.baseline_policies()["life_kite_5"](self.task.observe(self.roach, [], [near_marine])),
                          ATTACK_CLOSEST)
 
+    def test_es_rotate_roach_starting_policy_is_life_kite_5(self):
+        from tools.rl.es import FAMILIES, LIFE_KITE_THETA0
+
+        policy, rule = FAMILIES["rotate_roach"].policy(LIFE_KITE_THETA0), self.task.baseline_policies()["life_kite_5"]
+        self.roach.health = 72  # half life
+        for distance in (4.5, 5.5):
+            for cooldown in (8.0, 24.0):  # 25% and 75% of the cooldown left
+                marine = StandInFighter(10, 20.5 + distance, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)
+                self.roach.weapon_cooldown = cooldown
+                observation = self.task.observe(self.roach, [], [marine])
+                with self.subTest(distance=distance, cooldown=cooldown):
+                    self.assertEqual(policy(observation), rule(observation))
+
+    def test_group_slots_cover_the_largest_group_in_the_new_roach_configs(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_config
+
+        for name in ("roach_group_sizes", "roach_group_builtin"):
+            with self.subTest(name):
+                config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
+                largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+                self.assertLessEqual(largest, self.task.group_slots)
+
     def test_es_kite_roach_starting_policy_is_the_kite_rule_at_5(self):
         from tools.rl.es import FAMILIES, KITE_THETA0
         from tools.rl.examples.group_fight_task import kite_rule
@@ -1267,6 +1291,19 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
         self.assertEqual(dangerous, Point2((20.5, 28.5)))  # it didn't move
         self.task.apply(self.roach, bile_action("closest", 1.0), [], self.enemies)
         self.assertEqual(self.roach.commands, [("attack", self.marine)])
+
+    def test_rotating_bile_rule_biles_like_its_bile_rule_and_otherwise_rotates(self):
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS, step_away
+        from tools.rl.examples.roach_ravager_group_task import bile_action
+
+        rule = self.task.baseline_policies()["bile_dangerous_lead_0_life_kite_5"]
+        self.marine.position = Point2((24.5, 20.5))  # 4 away
+        self.ready()
+        self.assertEqual(rule(self.task.observe(self.ravager, [], self.enemies)), bile_action("dangerous", 0.0))
+        self.assertEqual(rule(self.task.observe(self.roach, [], self.enemies)), ATTACK_DANGEROUS)  # healthy, ready
+        self.roach.health, self.roach.weapon_cooldown = 72, 24.0  # half life, 75% of the cooldown left
+        observation = self.task.observe(self.roach, [], self.enemies)
+        self.assertEqual(rule(observation), step_away(observation))
 
     def test_bile_rules(self):
         from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS

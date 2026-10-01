@@ -28,6 +28,7 @@ from tools.rl.examples.group_fight_task import (
     GroupFightTask,
     Rule,
     closest_enemy_distance,
+    life_kite_rule,
     most_dangerous,
 )
 from tools.rl.examples.ravager_task import BILE, BILE_FLIGHT_SECONDS, BILE_RANGE, DECISION_SECONDS
@@ -44,6 +45,10 @@ CLUMP_SIZES = (0, 1, 2)
 # Game steps after a bile cast in which damage may be the bile's: its 1.6 s flight is 12 steps
 # at decision interval 3, plus a margin.
 BILE_CREDIT_STEPS = 16
+# The tuned bile rules (bile target, clump size; lead 0) that also get a version which rotates
+# hurt units out between shots (life_kite_rule), within this distance of an enemy.
+ROTATING_BILE_RULES = {"bile_dangerous_lead_0": ("dangerous", 0), "bile_closest_lead_0_clump_2": ("closest", 2)}
+ROTATION_DISTANCE = 5.0
 
 
 def bile_action(target: str, lead: float) -> int:
@@ -138,6 +143,10 @@ class RoachRavagerGroupTask(GroupFightTask):
                     name = f"bile_{target}_lead_{lead:g}" + (f"_clump_{clump}" if clump else "")
                     rules[name] = lambda observation, b=bile_action(target, lead), k=clump: bile_rule(
                         observation, b, ATTACK_DANGEROUS, k)
+        for name, (target, clump) in ROTATING_BILE_RULES.items():
+            rules[f"{name}_life_kite_{ROTATION_DISTANCE:g}"] = (
+                lambda observation, b=bile_action(target, 0.0), k=clump: bile_rule(
+                    observation, b, life_kite_rule(observation, ROTATION_DISTANCE, ATTACK_DANGEROUS), k))
         return rules
 
 

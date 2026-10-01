@@ -10,6 +10,7 @@ exactly at the rule:
 - kite (mutalisk fight), kite_roach, kite_hydra: one score decides whether to back off, another
   whether to attack the weakest in range instead of the closest. KITE_THETA0 is the kite rule at
   the family's distance (kite_4.5 for mutalisks).
+- rotate_roach: the same decisions, starting at life_kite_5 instead (LIFE_KITE_THETA0).
 
     python -m tools.rl.es search --config tools/rl/configs/roach_ravager_hard.yaml --out models/es-bile
     python -m tools.rl.es evaluate --config tools/rl/configs/roach_ravager_hard.yaml --theta models/es-bile/theta.json --fights 200
@@ -93,6 +94,10 @@ CROWD_MARGIN = 1.5
 # Back off: bias -1.5, cooling +1, within D +1 (the kite rule at D); attack the weakest: never.
 KITE_THETA0 = np.array([-1.5, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                         -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+# Back off: bias -1.5, within D +1.5, cooldown left +1, life -1 (life_kite_rule at D: with an
+# enemy within D, cooldown left above life; without one, never); attack the weakest: never.
+LIFE_KITE_THETA0 = np.array([-1.5, 0.0, 1.5, 1.0, 0.0, -1.0, 0.0, 0.0,
+                             -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 
 def kite_features(observation: np.ndarray, distance: float) -> np.ndarray:
@@ -136,6 +141,7 @@ FAMILIES = {
     "kite": Family(KITE_THETA0, partial(kite_policy, distance=MUTALISK_KITE_DISTANCE), 20),
     "kite_roach": Family(KITE_THETA0, partial(kite_policy, distance=ROACH_KITE_DISTANCE), 20),
     "kite_hydra": Family(KITE_THETA0, partial(kite_policy, distance=HYDRALISK_KITE_DISTANCE), 40),
+    "rotate_roach": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=ROACH_KITE_DISTANCE), 20),
 }
 
 

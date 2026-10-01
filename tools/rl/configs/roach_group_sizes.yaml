@@ -1,0 +1,48 @@
+# roach_group.yaml with other army sizes, to see how far the life_kite rule carries over.
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_group_sizes.yaml --baseline life_kite_5 --episodes 200
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_group_task:RoachGroupTask
+
+enemy:
+  mode: scripted
+  race: Terran
+
+scenarios:
+  - name: roaches_10v14
+    learner: {Roach: 10}
+    enemy: {Marine: 10, Marauder: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_10v18
+    learner: {Roach: 10}
+    enemy: {Marine: 14, Marauder: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_12v17
+    learner: {Roach: 12}
+    enemy: {Marine: 12, Marauder: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_12v21
+    learner: {Roach: 12}
+    enemy: {Marine: 16, Marauder: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

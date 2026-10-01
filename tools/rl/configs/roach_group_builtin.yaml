@@ -1,0 +1,38 @@
+# roach_group.yaml against the built-in AI's marines and marauders, an enemy the life_kite rule
+# wasn't found against (they may not simply shoot the closest target).
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_group_builtin.yaml --baseline life_kite_5 --episodes 200
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_group_task:RoachGroupTask
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: roaches_10v16_builtin
+    learner: {Roach: 10}
+    enemy: {Marine: 12, Marauder: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roaches_12v19_builtin
+    learner: {Roach: 12}
+    enemy: {Marine: 14, Marauder: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
