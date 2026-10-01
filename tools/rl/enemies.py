@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from sc2.bot_ai import BotAI
-from sc2.data import Difficulty, Race
+from sc2.data import AIBuild, Difficulty, Race
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.effect_id import EffectId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -256,7 +256,7 @@ def make_enemy_player(
     `briefing` tells the scripted enemy how to fight the current fight."""
     race = Race[config.race]
     if config.mode == "builtin":
-        return Computer(race, Difficulty[config.difficulty])
+        return Computer(race, Difficulty[config.difficulty], AIBuild[config.build])
     if config.mode == "scripted":
         return Bot(race, ScriptedEnemyBot(decision_interval, briefing), name="ScriptedEnemy")
     return Bot(race, FrozenEnemyBot(decision_interval, config.task, model_path or config.model), name="FrozenEnemy")

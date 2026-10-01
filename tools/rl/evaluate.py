@@ -3,7 +3,7 @@
     python -m tools.rl.evaluate --config tools/rl/configs/stalker_vs_roaches.yaml --model models/stalker/final.zip
     python -m tools.rl.evaluate --config ... --random          # baseline: random actions
     python -m tools.rl.evaluate --config ... --baseline kite   # a task's hand-written policy
-    python -m tools.rl.evaluate --config ... --model ... --enemy-mode builtin
+    python -m tools.rl.evaluate --config ... --model ... --enemy-mode builtin --enemy-build Rush
     python -m tools.rl.evaluate --config ... --model ... --replay models/stalker/eval.SC2Replay
     python -m tools.rl.evaluate --config ... --model ... --compare-with kite
     python -m tools.rl.evaluate --config ... --model ... --stochastic
@@ -16,12 +16,12 @@ fight, back to back, as one SC2 4.10 replay (open it in sc2-observer).
 
 import argparse
 from collections import defaultdict
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
+from sc2.data import AIBuild
 
-from tools.rl.config import ENEMY_MODES, load_config
+from tools.rl.config import ENEMY_MODES, load_config, with_enemy
 from tools.rl.env import SC2MicroEnv, make_env
 
 
@@ -84,6 +84,8 @@ def main():
     source.add_argument("--baseline", help="one of the task's hand-written policies, e.g. kite")
     parser.add_argument("--episodes", type=int, default=20, help="fights per scenario")
     parser.add_argument("--enemy-mode", choices=ENEMY_MODES, help="overrides the config's enemy mode")
+    parser.add_argument("--enemy-build", choices=[build.name for build in AIBuild],
+                        help="overrides the built-in AI's build (its strategy)")
     parser.add_argument("--replay", help="save all evaluated fights as one .SC2Replay at this path")
     parser.add_argument("--stochastic", action="store_true",
                         help="with --model: sample actions as in training instead of always the most likely one")
@@ -94,9 +96,7 @@ def main():
     if args.stochastic and not args.model:
         parser.error("--stochastic needs --model")
 
-    config = load_config(args.config)
-    if args.enemy_mode:
-        config = replace(config, enemy=replace(config.enemy, mode=args.enemy_mode))
+    config = with_enemy(load_config(args.config), args.enemy_mode, args.enemy_build)
 
     env = make_env(config)
     group = bool(env.task.group_slots)

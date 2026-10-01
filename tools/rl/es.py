@@ -28,8 +28,9 @@ from functools import partial
 from pathlib import Path
 
 import numpy as np
+from sc2.data import AIBuild
 
-from tools.rl.config import load_config
+from tools.rl.config import load_config, with_enemy
 from tools.rl.evaluate import summarize
 from tools.rl.examples.free_kite_task import DISTANCE_SCALE, MOVEMENT_SCALE
 from tools.rl.examples.group_fight_task import (
@@ -178,14 +179,14 @@ def fight_fitness(fight: dict) -> float:
 _env = None
 
 
-def _start_worker(config_path: str, counter):
+def _start_worker(config_path: str, enemy_build: str | None, counter):
     from tools.rl.env import make_env
 
     global _env
     with counter.get_lock():
         rank = counter.value
         counter.value += 1
-    _env = make_env(load_config(config_path), rank)
+    _env = make_env(with_enemy(load_config(config_path), build=enemy_build), rank)
     # Runs when the worker exits after pool.close(), so its SC2 processes don't outlive it.
     multiprocessing.util.Finalize(None, _env.close, exitpriority=10)
 
@@ -208,9 +209,9 @@ def _play(job: tuple[int, str, list, str, int]) -> tuple[int, list[dict]]:
     return candidate, fights
 
 
-def _pool(config_path: str, workers: int):
+def _pool(config_path: str, workers: int, enemy_build: str | None = None):
     context = multiprocessing.get_context("spawn")
-    return context.Pool(workers, initializer=_start_worker, initargs=(config_path, context.Value("i", 0)))
+    return context.Pool(workers, initializer=_start_worker, initargs=(config_path, enemy_build, context.Value("i", 0)))
 
 
 def _close(pool) -> None:
@@ -238,7 +239,8 @@ def win_rates(fights: list[dict]) -> dict[str, float]:
     return {name: round(sum(wins) / len(wins), 3) for name, wins in sorted(by_scenario.items())}
 
 
-def search(config_path: str, family: str, out: Path, generations: int, workers: int, seed: int):
+def search(config_path: str, family: str, out: Path, generations: int, workers: int, seed: int,
+           enemy_build: str | None = None):
     """Resumes from out/theta.json if it exists. Each generation's log line has the theta it
     scored; out/best.json gets the one with the best mean fitness so far."""
     out.mkdir(parents=True, exist_ok=True)
@@ -248,7 +250,7 @@ def search(config_path: str, family: str, out: Path, generations: int, workers: 
     theta = np.array(state["theta"])
     rng = np.random.default_rng(seed + state["generation"])
     scenarios = [scenario.name for scenario in load_config(config_path).scenarios]
-    pool = _pool(config_path, workers)
+    pool = _pool(config_path, workers, enemy_build)
     try:
         with open(out / "log.jsonl", "a") as log:
             for generation in range(state["generation"], generations):
@@ -271,9 +273,10 @@ def search(config_path: str, family: str, out: Path, generations: int, workers: 
         _close(pool)
 
 
-def evaluate(config_path: str, family: str, theta: np.ndarray, fights: int, workers: int):
+def evaluate(config_path: str, family: str, theta: np.ndarray, fights: int, workers: int,
+             enemy_build: str | None = None):
     scenarios = [scenario.name for scenario in load_config(config_path).scenarios]
-    pool = _pool(config_path, workers)
+    pool = _pool(config_path, workers, enemy_build)
     try:
         played = play_candidates(pool, family, [theta], scenarios, fights)[0]
     finally:
@@ -292,17 +295,19 @@ def main():
     parser.add_argument("--theta", help="evaluate: theta.json or best.json of a search, or 'rule' for the family's starting weights")
     parser.add_argument("--fights", type=int, default=200, help="evaluate: fights per scenario (a multiple of 5)")
     parser.add_argument("--workers", type=int, default=WORKERS)
+    parser.add_argument("--enemy-build", choices=[build.name for build in AIBuild],
+                        help="overrides the built-in AI's build (its strategy) in every worker")
     args = parser.parse_args()
     if args.command == "search":
         if not args.out:
             parser.error("search needs --out")
-        search(args.config, args.family, Path(args.out), args.generations, args.workers, args.seed)
+        search(args.config, args.family, Path(args.out), args.generations, args.workers, args.seed, args.enemy_build)
     else:
         if not args.theta:
             parser.error("evaluate needs --theta")
         theta = (FAMILIES[args.family].theta0 if args.theta == "rule"
                  else np.array(json.loads(Path(args.theta).read_text())["theta"]))
-        evaluate(args.config, args.family, theta, args.fights, args.workers)
+        evaluate(args.config, args.family, theta, args.fights, args.workers, args.enemy_build)
 
 
 if __name__ == "__main__":

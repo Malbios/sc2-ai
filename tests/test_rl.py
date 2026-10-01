@@ -200,6 +200,23 @@ class ConfigTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_config({**CONFIG, "learner": {**learner, "upgrades": ["Blink2"]}})
 
+    def test_builtin_build(self):
+        from sc2.data import AIBuild
+
+        from tools.rl.config import with_enemy
+        from tools.rl.enemies import make_enemy_player
+
+        self.assertEqual(parse_config(CONFIG).enemy.build, "RandomBuild")
+        builtin = parse_config({**CONFIG, "enemy": {"mode": "builtin", "race": "Terran", "build": "Rush"}})
+        self.assertEqual(make_enemy_player(builtin.enemy, 3).ai_build, AIBuild.Rush)
+        air = with_enemy(builtin, build="Air")
+        self.assertEqual((air.enemy.mode, air.enemy.build), ("builtin", "Air"))
+        self.assertEqual(with_enemy(builtin, mode="scripted").enemy.build, "Rush")
+        with self.assertRaises(ValueError):
+            parse_config({**CONFIG, "enemy": {"mode": "builtin", "race": "Terran", "build": "Cheese"}})
+        with self.assertRaises(ValueError):
+            with_enemy(builtin, build="Cheese")
+
     def test_ppo_settings(self):
         self.assertEqual(parse_config(CONFIG).ppo.learning_rate, 3e-4)
         ppo = parse_config({**CONFIG, "ppo": {"learning_rate": 0.01, "net_arch": [128, 128]}}).ppo

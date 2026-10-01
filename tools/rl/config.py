@@ -6,7 +6,7 @@ from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 import yaml
-from sc2.data import Difficulty, Race
+from sc2.data import AIBuild, Difficulty, Race
 from sc2.ids.upgrade_id import UpgradeId
 
 from tools.rl.scenarios import Scenario, parse_scenarios
@@ -29,6 +29,9 @@ class EnemyConfig:
     mode: str  # builtin | scripted | frozen
     race: str
     difficulty: str = "VeryEasy"  # builtin only
+    # builtin only: its strategy (AIBuild). RandomBuild draws one per SC2 game, which then holds
+    # for every fight in that game.
+    build: str = "RandomBuild"
     task: str | None = None  # frozen and self-play: the enemy's MicroTask
     model: str | None = None  # frozen: the enemy's trained model (.zip)
 
@@ -112,6 +115,7 @@ def parse_config(data: dict) -> TrainingConfig:
         mode=enemy.get("mode", "scripted"),
         race=_check_enum(enemy.get("race", "Terran"), Race, "race"),
         difficulty=_check_enum(enemy.get("difficulty", "VeryEasy"), Difficulty, "difficulty"),
+        build=_check_enum(enemy.get("build", "RandomBuild"), AIBuild, "build"),
         task=enemy.get("task"),
         model=enemy.get("model"),
     )
@@ -165,6 +169,16 @@ def self_play_side(config: TrainingConfig, side: str, other_model: str) -> Train
     else:
         raise ValueError(f"side must be 'a' or 'b', got '{side}'")
     return replace(config, learner=learner, enemy=enemy, scenarios=scenarios)
+
+
+def with_enemy(config: TrainingConfig, mode: str | None = None, build: str | None = None) -> TrainingConfig:
+    """The config with the enemy's mode and the built-in AI's build replaced where given."""
+    enemy = config.enemy
+    if mode:
+        enemy = replace(enemy, mode=mode)
+    if build:
+        enemy = replace(enemy, build=_check_enum(build, AIBuild, "build"))
+    return replace(config, enemy=enemy)
 
 
 def load_config(path: str | Path) -> TrainingConfig:
