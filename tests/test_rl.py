@@ -1206,12 +1206,31 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         self.muta.weapon_cooldown = 6.0  # 25% left
         self.assertEqual(self.rule("life_kite", [], near), ATTACK_CLOSEST)
 
+    def test_spread_flies_away_from_a_close_ally_only_while_cooling(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE, closest_ally_offset
+
+        south = FIRST_MOVE + 6
+        marine = [self.marine(10, 9.5, 20.5)]
+        close, far = [StandInFighter(2, 5.5, 21.5, health=120, health_max=120)], [StandInFighter(2, 5.5, 23.5, health=120, health_max=120)]
+        observation = self.task.observe(self.muta, close, marine)
+        offset = closest_ally_offset(observation)
+        self.assertAlmostEqual(offset.x, 0.0, places=5)
+        self.assertAlmostEqual(offset.y, 1.0, places=5)
+        self.assertIsNone(closest_ally_offset(self.task.observe(self.muta, [], marine)))
+        self.assertEqual(self.rule("spread_1.5", close, marine), ATTACK_CLOSEST)  # weapon ready
+        self.muta.weapon_cooldown = 10.0
+        self.assertEqual(self.rule("spread_1.5", close, marine), south)
+        self.assertEqual(self.rule("spread_1.5", far, marine), ATTACK_CLOSEST)  # 3 away
+        self.assertEqual(self.rule("spread_2.5", far, marine), ATTACK_CLOSEST)
+        self.assertEqual(self.rule("spread_1.5_life_kite", far, marine), self.rule("life_kite", far, marine))
+
     def test_group_slots_cover_the_largest_group_in_every_mutalisk_config(self):
         from pathlib import Path
 
         from tools.rl.config import load_config
 
-        for name in ("mutalisk_group_calibration", "mutalisk_group", "mutalisk_group_sizes", "mutalisk_group_builtin"):
+        for name in ("mutalisk_group_calibration", "mutalisk_group", "mutalisk_group_sizes", "mutalisk_group_builtin",
+                     "mutalisk_thor_calibration"):
             with self.subTest(name):
                 config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
                 largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)

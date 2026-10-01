@@ -157,6 +157,13 @@ def allies_center(observation: np.ndarray) -> Point2 | None:
     return Point2((sum(p.x for p in positions) / len(positions), sum(p.y for p in positions) / len(positions)))
 
 
+def closest_ally_offset(observation: np.ndarray) -> Point2 | None:
+    """Relative position (game distance) of the closest seen ally; None with none in sight."""
+    if not observation[FIRST_ALLY]:
+        return None
+    return Point2(observation[FIRST_ALLY + 1:FIRST_ALLY + 3]) * DISTANCE_SCALE
+
+
 def kite_rule(observation: np.ndarray, distance: float, attack: int = ATTACK_CLOSEST) -> int:
     """`attack` when the weapon is ready or no enemy is within `distance`; else step away."""
     if observation[COOLDOWN] == 0 or closest_enemy_distance(observation) > distance:
