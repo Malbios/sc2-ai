@@ -1,6 +1,7 @@
-# Calibration for the magic box check: 8 mutalisks against 2 to 5 thors of the built-in AI, the
-# attack rule, to find sizes where attack-move wins 15 to 70% (then mutalisk_thor.yaml). Run per
-# build, as the built-in AI's build is otherwise drawn once per game:
+# Calibration for the magic box check: mutalisks against thors of the built-in AI, the attack
+# rule, to find sizes where attack-move wins 15 to 70% (then mutalisk_thor.yaml). 8 mutalisks won
+# 81% against 2 thors and none against 3 to 5, so these vary the mutalisks. Run per build, as the
+# built-in AI's build is otherwise drawn once per game:
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_thor_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
 
@@ -17,27 +18,33 @@ enemy:
   difficulty: VeryHard
 
 scenarios:
-  - name: mutas_8v2_thors
-    learner: {Mutalisk: 8}
+  - name: mutas_6v2_thors
+    learner: {Mutalisk: 6}
     enemy: {Thor: 2}
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v3_thors
-    learner: {Mutalisk: 8}
+  - name: mutas_7v2_thors
+    learner: {Mutalisk: 7}
+    enemy: {Thor: 2}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_10v3_thors
+    learner: {Mutalisk: 10}
     enemy: {Thor: 3}
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v4_thors
-    learner: {Mutalisk: 8}
-    enemy: {Thor: 4}
+  - name: mutas_11v3_thors
+    learner: {Mutalisk: 11}
+    enemy: {Thor: 3}
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutas_8v5_thors
-    learner: {Mutalisk: 8}
-    enemy: {Thor: 5}
+  - name: mutas_12v3_thors
+    learner: {Mutalisk: 12}
+    enemy: {Thor: 3}
     distance: [10, 12]
     time_limit: 60
 
