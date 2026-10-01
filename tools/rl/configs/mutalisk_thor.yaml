@@ -1,0 +1,39 @@
+# The magic box fights picked by calibration (mutalisk_thor_calibration.yaml, the attack rule, 20
+# fights per built-in AI build): attack-move wins 26% with 7 mutalisks against 2 thors and 42%
+# with 11 against 3 (6v2 0%, 10v3 10%, 12v3 80%). Every rule, per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_thor.yaml --baseline spread_1.5 --episodes 100 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: mutas_7v2_thors
+    learner: {Mutalisk: 7}
+    enemy: {Thor: 2}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_11v3_thors
+    learner: {Mutalisk: 11}
+    enemy: {Thor: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

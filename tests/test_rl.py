@@ -1230,7 +1230,7 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         from tools.rl.config import load_config
 
         for name in ("mutalisk_group_calibration", "mutalisk_group", "mutalisk_group_sizes", "mutalisk_group_builtin",
-                     "mutalisk_thor_calibration"):
+                     "mutalisk_thor_calibration", "mutalisk_thor"):
             with self.subTest(name):
                 config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
                 largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
