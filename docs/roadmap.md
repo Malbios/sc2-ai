@@ -88,9 +88,13 @@ Several learner units already share one model in a fight, each deciding for itse
       (the fight the headroom check called "no room"); the search, started from kiting, ended
       at attack-move. Hydralisks vs zealots: rotation loses to kiting against melee, the search
       only matched the kite rule (design doc).
-- [x] Rotation follow-ups: rotation on top of bile is level or worse (8 to 24 points worse in
-      the hard fight); the search starting at life_kite_5 didn't refine it; the roach rule adds
-      10 points at one other size and nothing measurable against the built-in AI (design doc).
+- [x] Rotation follow-ups (remeasured after fixing unit order in split configs): rotation on
+      top of bile adds 9 to 16 points in the hard fight; the roach rule beats attack-move by
+      18 points against the built-in AI too; the search starting at life_kite_5 didn't refine
+      it (design doc).
+- [x] Searches against the built-in AI (configs can set its build now): mutalisks 81% to 93%
+      over life_kite, across all 5 builds; roaches no gain (design doc).
+- [ ] Bile fight with rotation against the built-in AI (no config for it yet).
 
 ## 4. The bot itself
 

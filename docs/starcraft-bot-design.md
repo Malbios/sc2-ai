@@ -639,23 +639,45 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
     search moved toward kiting harder and only matched the best kite rule.
   - So the search finds an idea only when it starts near it; once found, the rule carries over
     to other ranged fights.
-- **Rotation follow-ups: no gain on top of bile, no refinement by search, and the roach gain
-  mostly doesn't reach the built-in AI.** 200 fights per fight:
+- **Rotation follow-ups (remeasured, see the next point): rotation adds to bile in the hard
+  fight, the roach rule holds against the built-in AI, and search didn't refine it.** 200
+  fights per fight, the configs' own unit order:
   - Bile fight with rotation (life_kite within 5, otherwise the bile rule; standing in bile /
-    dodging): the tuned rule 96 / 87% became 100 / 82%; in the hard fight 80 / 50% became
-    72 / 26%, and the clump rule's 78 / 55% became 68 / 34%. Level in the normal fight, 8 to
-    24 points worse in the hard one, worst against dodging bio.
+    dodging). The normal fight: most dangerous 98 / 88% became 100 / 92%, clump 100 / 83% became
+    99 / 87% (at the ceiling). The hard fight: most dangerous 75 / 52% became 86 / 68%, clump
+    75 / 48% became 84 / 60%, +9 to +16. The first gain over the bile rules that PPO and the
+    bile search stopped at: they only ever changed the bile decision.
   - The search starting at life_kite_5 (rotate_roach): start 56 / 28%, final 56 / 29%, best
     generation (13) 60 / 26%. No refinement.
   - life_kite_5 measured four times on the roach fight (10v16 / 12v19): 69 / 30, 56 / 28,
-    60 / 30 and 64 / 36%, two through evaluate.py and two through es.py. Same policy; the spread
-    is noise, so 200 fights of one rule can land 13 points apart near 60%. About 62 / 31% in
-    all, still 26 / 22 points above attack-move (36 / 9%).
-  - Other sizes (attack / life_kite_5): 10 vs 10 + 4 98 / 100%, 10 vs 14 + 4 0 / 5%, 12 vs
-    12 + 5 80 / 90%, 12 vs 16 + 5 0 / 2%. Built-in AI (VeryHard): 10v16 10 / 14%, 12v19 0 / 0%.
-    The sizes picked were mostly at 0 or 100% already; where there's room (12 vs 17) rotation
-    adds 10 points. Against the built-in AI it adds 4, within noise. Unlike the mutalisk rule,
-    the roach gain may depend on the scripted enemy shooting the closest target.
+    60 / 30 and 64 / 36%. The spread is noise: 200 fights of one rule can land 13 points apart
+    near 60%. About 62 / 31% in all, 26 / 22 points above attack-move (36 / 9%).
+  - Other sizes (attack / life_kite_5): 10 vs 10 + 4 96 / 98%, 10 vs 14 + 4 0 / 2%, 12 vs
+    12 + 5 62 / 82%, 12 vs 16 + 5 0 / 1%. Where there's room (12 vs 17), +20.
+  - Built-in AI (each of its 5 builds, 100 fights per fight each, averaged): attack 37 / 12%,
+    life_kite_5 55 / 31%, +18 / +19. The roach rule holds against an enemy that doesn't shoot
+    the closest target.
+- **Two measurement pitfalls, found when one rule scored 14% and 60% against the same enemy.**
+  - Unit order in a config sets the formation. All of a side's units spawn at one point and
+    SC2 places them outward in the order listed, so `{Marine: 12, Marauder: 4}` puts the
+    marauders on the outside (in front) and `{Marauder: 4, Marine: 12}` in the middle. My
+    survey script split configs per fight with `yaml.safe_dump`, which sorts keys: every
+    per-fight run against mixed bio had the other formation. Against the built-in AI that moved
+    life_kite_5 from about 55% to 14% (roaches, 10v16); against the scripted enemy it mattered
+    little. Earlier results from those runs (the first rotation follow-ups: bile + rotation
+    "8 to 24 points worse", the roach sizes and built-in AI numbers) were wrong and are
+    replaced above. The script now keeps the order (`sort_keys=False`).
+  - The built-in AI draws a random build per SC2 game, and a game serves hundreds of fights.
+    Configs can now set it (`enemy.build`), and `evaluate` / `es` take `--enemy-build`. In these
+    fights the build barely matters: every rule scored within a few points across all 5.
+- **A search against the built-in AI improved the mutalisk rule.** rotate_mutalisk, starting at
+  life_kite, 20 generations against the built-in AI (random builds per worker), 15 minutes.
+  Each build separately, 100 fights per fight (14 / 16 marines, averaged over builds): attack
+  37 / 0%, kite_4.5 28 / 0%, life_kite 81 / 2%, the search's final weights 93 / 6%: +12 over
+  life_kite on average, +9 to +18 per build. Against the scripted enemy it still wins 100 /
+  100%. It backs off more (44% of decisions instead of 31%), mostly from a larger weight on
+  cooldown left (1.0 to 1.6). The first time a search improved on an already good rule. The
+  same search on roaches (rotate_roach, built-in AI) found nothing: 55 / 31% before and after.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
