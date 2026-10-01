@@ -94,7 +94,8 @@ Several learner units already share one model in a fight, each deciding for itse
       it (design doc).
 - [x] Searches against the built-in AI (configs can set its build now): mutalisks 81% to 93%
       over life_kite, across all 5 builds; roaches no gain (design doc).
-- [ ] Bile fight with rotation against the built-in AI (no config for it yet).
+- [x] Bile fight with rotation against the built-in AI: +2 to +5 points over the bile rules,
+      short of the bar (design doc).
 
 ## 4. The bot itself
 

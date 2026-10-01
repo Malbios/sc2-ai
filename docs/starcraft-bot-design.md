@@ -678,6 +678,13 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   100%. It backs off more (44% of decisions instead of 31%), mostly from a larger weight on
   cooldown left (1.0 to 1.6). The first time a search improved on an already good rule. The
   same search on roaches (rotate_roach, built-in AI) found nothing: 55 / 31% before and after.
+- **Against the built-in AI, rotation adds little to the bile rules.** roach_ravager_builtin.yaml
+  (no bile dodging), each build, 100 fights per fight, averaged over builds (12 + 3 / 14 + 3
+  bio): attack 22 / 0%, most dangerous 94 / 73%, with rotation 97 / 75%; clump 93 / 55%, with
+  rotation 96 / 60%. +2 to +5, short of the +10 bar; no build worse. Units rotated on 8% of
+  decisions here against 15% against the scripted enemy, where the hard fight gained 9 to 16:
+  part of that gain came from the scripted enemy's way of fighting. Bile itself holds up
+  (attack-move wins 22 / 0%).
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
