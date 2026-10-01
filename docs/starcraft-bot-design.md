@@ -613,6 +613,32 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   Against the built-in AI the trick holds (+46 points over attack-move), so it doesn't only
   exploit the scripted enemy's "shoot the closest". The value of the search here was finding
   the idea; the bot would use the rule.
+- **Rotation is general against ranged enemies, not against melee ones.** life_kite (distance
+  center to center) and the same search (starting from the kite rule at the distance) on two
+  earlier fights, 200 fights per fight:
+
+  | roaches vs marines + marauders | 10 vs 12 + 4 | 12 vs 14 + 5 |
+  |---|---|---|
+  | attack (the best earlier rule) | 36% | 9% |
+  | life_kite, enemy within 5 / 7 | 69 / 56% | 30 / 18% |
+  | search start (kite within 5) | 21% | 6% |
+  | search final / best (16) | 35 / 30% | 11 / 9% |
+
+  | hydralisks vs zealots | wins | life lost |
+  |---|---|---|
+  | kite within 5, shoot the most dangerous (the best earlier rule) | 100% | 45% |
+  | life_kite, within 3 / 5 | 44 / 51% | 93 / 92% |
+  | search start (kite within 3) | 98% | 70% |
+  | search final / best (20) | 100% / 100% | 47 / 47% |
+
+  - Roaches: the mutalisk rule, unchanged, beats attack-move by 33 and 21 points, in the fight
+    the headroom check had called "no room for micro" (that check only tried pulling back below
+    35% life until the danger was gone). The search didn't find it: started from kiting, which
+    loses here, it drifted to never backing off (attack-move).
+  - Hydralisks: rotation hurts against melee (standing to shoot lets zealots connect); the
+    search moved toward kiting harder and only matched the best kite rule.
+  - So the search finds an idea only when it starts near it; once found, the rule carries over
+    to other ranged fights.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few

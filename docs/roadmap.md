@@ -84,6 +84,10 @@ Several learner units already share one model in a fight, each deciding for itse
       more cooldown than life is left) matches the learned weights everywhere. Both carry over:
       15 marines 90 to 100% (old rules 2 to 6%), 16 marines 30 to 44% (0%), the built-in AI 84%
       (22 to 38%). Nothing wins against 18+ (design doc).
+- [x] Is rotation general? life_kite on roaches vs bio: 69 / 30% against attack-move's 36 / 9%
+      (the fight the headroom check called "no room"); the search, started from kiting, ended
+      at attack-move. Hydralisks vs zealots: rotation loses to kiting against melee, the search
+      only matched the kite rule (design doc).
 
 ## 4. The bot itself
 
