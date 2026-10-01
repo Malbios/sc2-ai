@@ -1,0 +1,41 @@
+# The roach and ravager fights (roach_ravager_group.yaml, roach_ravager_hard.yaml) against the
+# built-in AI's bio, which doesn't step out of bile. Set its build per run; unit order is kept as
+# in the scripted configs (marines first), since it sets the spawn formation.
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_ravager_builtin.yaml \
+#       --baseline bile_dangerous_lead_0_life_kite_5 --episodes 100 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # bile's lead assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_ravager_group_task:RoachRavagerGroupTask
+  decide_every: 1            # bile's lead assumes one decision per 3 game frames
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: rr_8v15_builtin
+    learner: {Roach: 6, Ravager: 2}
+    enemy: {Marine: 12, Marauder: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: rr_8v17_builtin
+    learner: {Roach: 6, Ravager: 2}
+    enemy: {Marine: 14, Marauder: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

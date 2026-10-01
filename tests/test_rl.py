@@ -1443,9 +1443,11 @@ class RoachRavagerGroupTaskTest(unittest.TestCase):
 
         from tools.rl.config import load_config
 
-        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/roach_ravager_group_calibration.yaml")
-        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
-        self.assertLessEqual(largest, self.task.group_slots)
+        for name in ("roach_ravager_group_calibration", "roach_ravager_builtin"):
+            with self.subTest(name):
+                config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
+                largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+                self.assertLessEqual(largest, self.task.group_slots)
 
 
 class RoachBurrowGroupTaskTest(unittest.TestCase):
