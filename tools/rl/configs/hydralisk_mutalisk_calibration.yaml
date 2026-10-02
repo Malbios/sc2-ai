@@ -1,0 +1,51 @@
+# Zerg survey calibration: hydralisks against the built-in AI's (Zerg) mutalisks. The attack rule,
+# to find sizes where attack-move wins 15 to 70% (then hydralisk_mutalisk.yaml). Run per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_mutalisk_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.hydralisk_group_task:HydraliskGroupTask
+  upgrades: [EvolveMuscularAugments, EvolveGroovedSpines]
+
+enemy:
+  mode: builtin
+  race: Zerg
+  difficulty: VeryHard
+
+scenarios:
+  - name: hydralisk_mutalisk_8v6mu
+    learner: {Hydralisk: 8}
+    enemy: {Mutalisk: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydralisk_mutalisk_8v8mu
+    learner: {Hydralisk: 8}
+    enemy: {Mutalisk: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydralisk_mutalisk_8v10mu
+    learner: {Hydralisk: 8}
+    enemy: {Mutalisk: 10}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydralisk_mutalisk_8v12mu
+    learner: {Hydralisk: 8}
+    enemy: {Mutalisk: 12}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

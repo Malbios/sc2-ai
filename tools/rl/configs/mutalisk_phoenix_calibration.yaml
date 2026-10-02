@@ -1,0 +1,51 @@
+# Zerg survey calibration: mutalisks against the built-in AI's (Protoss) phoenixes. The attack
+# rule, to find sizes where attack-move wins 15 to 70% (then mutalisk_phoenix.yaml). Run per
+# build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_phoenix_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: builtin
+  race: Protoss
+  difficulty: VeryHard
+
+scenarios:
+  - name: mutalisk_phoenix_8v4p
+    learner: {Mutalisk: 8}
+    enemy: {Phoenix: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutalisk_phoenix_8v6p
+    learner: {Mutalisk: 8}
+    enemy: {Phoenix: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutalisk_phoenix_8v8p
+    learner: {Mutalisk: 8}
+    enemy: {Phoenix: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutalisk_phoenix_8v10p
+    learner: {Mutalisk: 8}
+    enemy: {Phoenix: 10}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

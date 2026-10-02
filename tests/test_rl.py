@@ -200,6 +200,18 @@ class ConfigTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_config({**CONFIG, "learner": {**learner, "upgrades": ["Blink2"]}})
 
+    def test_every_config_loads_and_its_largest_group_fits_the_task(self):
+        from pathlib import Path
+
+        from tools.rl.config import load_class, load_config
+
+        for path in sorted((Path(__file__).parents[1] / "tools/rl/configs").glob("*.yaml")):
+            with self.subTest(path.name):
+                config = load_config(path)
+                slots = load_class(config.learner.task).group_slots
+                if slots:
+                    self.assertLessEqual(max(sum(s.learner.values()) for s in config.scenarios), slots)
+
     def test_builtin_build(self):
         from sc2.data import AIBuild
 

@@ -1,0 +1,50 @@
+# Zerg survey calibration: roachs against the built-in AI's (Protoss) stalkers. The attack rule,
+# to find sizes where attack-move wins 15 to 70% (then roach_stalker.yaml). Run per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_stalker_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_group_task:RoachGroupTask
+
+enemy:
+  mode: builtin
+  race: Protoss
+  difficulty: VeryHard
+
+scenarios:
+  - name: roach_stalker_8v4s
+    learner: {Roach: 8}
+    enemy: {Stalker: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roach_stalker_8v6s
+    learner: {Roach: 8}
+    enemy: {Stalker: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roach_stalker_8v8s
+    learner: {Roach: 8}
+    enemy: {Stalker: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roach_stalker_8v10s
+    learner: {Roach: 8}
+    enemy: {Stalker: 10}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
