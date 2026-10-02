@@ -112,6 +112,11 @@ Several learner units already share one model in a fight, each deciding for itse
       build; it learned to back off whenever the weapon cools, at any distance (design doc).
 - [x] Check it with a hand rule: kiting with a limit of 7 or more (or none) wins 100% against
       every build, like the search; the limit of 5 was the whole problem (design doc).
+- [x] Zerg survey against Protoss and Zerg (design doc): room for a search in hydralisks vs
+      mutalisks (kite_threat_5 62%), roaches vs stalkers (life_kite_7 79 / 88%) and mutalisks
+      vs hydralisks (life_kite 28%); the roach mirror saturates; hydralisks vs stalkers and
+      mutalisks vs phoenixes have no headroom.
+- [ ] Searches on the three, each from its best rule, against the built-in AI.
 
 ## 4. The bot itself
 

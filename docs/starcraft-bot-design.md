@@ -778,6 +778,27 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   was one number: the limit of 5, carried over from the zealot fight, sat below the distance
   hydralisks shoot marines from. Tuning that number by hand would have found it too; the
   search found it without being told which number was wrong.
+- **A Zerg survey against Protoss and Zerg: three fights with room for a search.** Built-in AI,
+  sizes from up to three calibration rounds (most fights flipped from 100% to 0% between
+  neighbouring sizes). Each build, 100 fights per fight, averaged:
+
+  | fight (size) | attack | the other rules |
+  |---|---|---|
+  | hydralisks vs mutalisks (8 vs 10) | 24% | kite_threat_5 62%, life_kite_5 55%, kite_threat_any 48%, kite_any 5% |
+  | roaches vs stalkers (8 vs 7 / 12 vs 10) | 26 / 51% | life_kite_7 79 / 88%, threat 27 / 56%, life_kite_5 27 / 55% |
+  | mutalisks vs hydralisks (12 vs 11) | 12% | life_kite 28%, kite_4.5 21%, spread_always_1 0% |
+  | roaches vs roaches (8 vs 8) | 61% | life_kite_7 100%, life_kite_5 98%, threat 97% |
+  | hydralisks vs stalkers (8 vs 9 / 10 vs 12) | 48 / 21% | kite_threat_5 46 / 21%, life_kite_5 46 / 19%, kite_any 0 / 0% |
+  | mutalisks vs phoenixes (12 vs 7) | 63% | life_kite 66%, kite_4.5 12%, spread_always_1 4% |
+
+  - **Pass with room:** hydralisks vs mutalisks (kiting, +38), roaches vs stalkers (rotation at
+    7, +34 to +53; at 5 it does nothing: stalkers shoot from 6), mutalisks vs hydralisks
+    (rotation, +16, from a low start).
+  - **Saturated:** the roach mirror (rotation or threat, 97 to 100%).
+  - **No headroom:** hydralisks vs stalkers (equal range: kiting without a limit loses
+    everything) and mutalisks vs phoenixes.
+  - Rotation (life_kite) helped in 4 of 6 fights, wherever the enemy is ranged and the limit
+    covers its range. Spreading lost every non-thor fight.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
