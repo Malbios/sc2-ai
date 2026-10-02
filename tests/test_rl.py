@@ -1224,6 +1224,16 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.rule("spread_2.5", far, marine), ATTACK_CLOSEST)
         self.assertEqual(self.rule("spread_1.5_life_kite", far, marine), self.rule("life_kite", far, marine))
 
+    def test_spread_always_keeps_the_spacing_with_the_weapon_ready(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
+
+        south = FIRST_MOVE + 6
+        marine = [self.marine(10, 9.5, 20.5)]
+        close = [StandInFighter(2, 5.5, 21.3, health=120, health_max=120)]  # 0.8 north
+        self.assertEqual(self.rule("spread_always_1", close, marine), south)
+        self.assertEqual(self.rule("spread_1", close, marine), ATTACK_CLOSEST)
+        self.assertEqual(self.rule("spread_always_0.75", close, marine), ATTACK_CLOSEST)
+
     def test_es_spread_mutalisk_starting_policy_is_spread_1(self):
         from tools.rl.es import FAMILIES, SPREAD_THETA0
 

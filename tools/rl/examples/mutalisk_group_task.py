@@ -30,6 +30,7 @@ KITE_DISTANCE = 6.0  # a marine's range plus a margin
 SHORT_KITE_DISTANCE = 4.5  # the best kite distance in the headroom survey
 HURT_LIFE_SHARES = (0.5, 0.7, 0.9)
 SPREAD_SPACINGS = (1.0, 1.5, 2.5)  # center to center; a thor's splash radius is 0.5
+ALWAYS_SPREAD_SPACINGS = (0.75, 1.0, 1.5)
 CLUMP_RADIUS = 1.5
 CLUMP_SAFE_DISTANCE = 7.0  # regrouping only while no marine is this close
 
@@ -72,16 +73,19 @@ class MutaliskGroupTask(GroupFightTask):
             "life_kite": lambda observation: life_kite_rule(observation, SHORT_KITE_DISTANCE),
             **{f"spread_{spacing:g}": lambda observation, s=spacing: spread_rule(observation, s)
                for spacing in SPREAD_SPACINGS},
+            **{f"spread_always_{spacing:g}": lambda observation, s=spacing: spread_rule(observation, s, always=True)
+               for spacing in ALWAYS_SPREAD_SPACINGS},
             "spread_1.5_life_kite": lambda observation: spread_rule(
                 observation, 1.5, life_kite_rule(observation, SHORT_KITE_DISTANCE)),
         }
 
 
-def spread_rule(observation: np.ndarray, spacing: float, otherwise: int = ATTACK_CLOSEST) -> int:
-    """While the weapon cools down and the closest ally is within `spacing`, fly straight away
-    from it (against splash, like a thor's, that hits units bunched together); else `otherwise`."""
+def spread_rule(observation: np.ndarray, spacing: float, otherwise: int = ATTACK_CLOSEST, always: bool = False) -> int:
+    """While the weapon cools down (or `always`) and the closest ally is within `spacing`, fly
+    straight away from it (against splash, like a thor's, that hits units bunched together);
+    else `otherwise`."""
     ally = closest_ally_offset(observation)
-    if observation[COOLDOWN] > 0 and ally is not None and ally.length <= spacing:
+    if (always or observation[COOLDOWN] > 0) and ally is not None and ally.length <= spacing:
         return move_toward(-ally)
     return otherwise
 
