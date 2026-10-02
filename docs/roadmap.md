@@ -110,7 +110,8 @@ Several learner units already share one model in a fight, each deciding for itse
       100%); both siege tank fights fail the headroom gate.
 - [x] A search on hydralisks vs marines, starting at kite_threat_5: 52% to 100% against every
       build; it learned to back off whenever the weapon cools, at any distance (design doc).
-- [ ] Check it with a hand rule: kite while cooling at any distance, shooting the most dangerous.
+- [x] Check it with a hand rule: kiting with a limit of 7 or more (or none) wins 100% against
+      every build, like the search; the limit of 5 was the whole problem (design doc).
 
 ## 4. The bot itself
 

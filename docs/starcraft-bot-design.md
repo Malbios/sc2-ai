@@ -770,7 +770,14 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   the bias (-1.5 to -1.3) alone, so a hydralisk backs off whenever its weapon cools down, at
   any distance. The starting rule hardly ever kited (0% of decisions): hydralisks shoot from
   about 7 center to center, so a marine was rarely within 5. The search's weights kite on 53%
-  of decisions. A hand rule (kite while cooling at any distance) should be checked next.
+  of decisions.
+- **Any kite limit past the hydralisk's firing distance matches that search.** Each build, 100
+  fights against 20 marines, all in one run: kite_threat_5 51% (life lost 94%); kite_threat_7,
+  kite_threat_9, kite_threat_any (no limit) and kite_any (no limit, the closest target) 100%
+  against every build (life lost 54 to 59%); the search's weights 100% (55%). The whole gain
+  was one number: the limit of 5, carried over from the zealot fight, sat below the distance
+  hydralisks shoot marines from. Tuning that number by hand would have found it too; the
+  search found it without being told which number was wrong.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
