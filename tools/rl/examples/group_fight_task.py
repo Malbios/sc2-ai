@@ -171,6 +171,16 @@ def kite_rule(observation: np.ndarray, distance: float, attack: int = ATTACK_CLO
     return step_away(observation)
 
 
+def spread_rule(observation: np.ndarray, spacing: float, otherwise: int = ATTACK_CLOSEST, always: bool = False) -> int:
+    """While the weapon cools down (or `always`) and the closest ally is within `spacing`, move
+    straight away from it (against splash, like a thor's or a siege tank's, that hits units
+    bunched together); else `otherwise`."""
+    ally = closest_ally_offset(observation)
+    if (always or observation[COOLDOWN] > 0) and ally is not None and ally.length <= spacing:
+        return move_toward(-ally)
+    return otherwise
+
+
 def life_kite_rule(observation: np.ndarray, distance: float, attack: int = ATTACK_CLOSEST) -> int:
     """Back off while an enemy is within `distance` and more of the cooldown is left than of the
     own life, else `attack`: healthy units only step back right after shooting, hurt ones for

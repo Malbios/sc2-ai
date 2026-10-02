@@ -1,0 +1,52 @@
+# Survey calibration: hydralisks against the built-in AI's marines. The attack rule, to find sizes
+# where attack-move wins 15 to 70% (then hydralisk_marine.yaml). Marines are listed first in mixed
+# fights and the order stays fixed: it sets the spawn formation. Run per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_marine_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.hydralisk_group_task:HydraliskGroupTask
+  upgrades: [EvolveMuscularAugments, EvolveGroovedSpines]
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: hydralisk_marine_8v10m
+    learner: {Hydralisk: 8}
+    enemy: {Marine: 10}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydralisk_marine_8v12m
+    learner: {Hydralisk: 8}
+    enemy: {Marine: 12}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydralisk_marine_8v14m
+    learner: {Hydralisk: 8}
+    enemy: {Marine: 14}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydralisk_marine_8v16m
+    learner: {Hydralisk: 8}
+    enemy: {Marine: 16}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

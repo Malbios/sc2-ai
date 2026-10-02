@@ -13,6 +13,7 @@ from tools.rl.examples.group_fight_task import (
     Rule,
     closest_enemy_distance,
     life_kite_rule,
+    spread_rule,
     step_away,
 )
 
@@ -20,6 +21,7 @@ from tools.rl.examples.group_fight_task import (
 PULL_BACK_BELOW = 0.35
 PULL_BACK_DISTANCE = 7.0
 LIFE_KITE_DISTANCES = (5.0, 7.0)  # center to center: a roach's range and a marauder's, plus radii
+SPREAD_SPACINGS = (1.0, 1.5)  # center to center, against splash such as a hellbat's or a siege tank's
 
 
 class RoachGroupTask(GroupFightTask):
@@ -29,6 +31,8 @@ class RoachGroupTask(GroupFightTask):
         rules = {**super().baseline_policies(), "smart": _smart_rule}
         for distance in LIFE_KITE_DISTANCES:
             rules[f"life_kite_{distance:g}"] = lambda observation, d=distance: life_kite_rule(observation, d)
+        for spacing in SPREAD_SPACINGS:
+            rules[f"spread_always_{spacing:g}"] = lambda observation, s=spacing: spread_rule(observation, s, always=True)
         return rules
 
 

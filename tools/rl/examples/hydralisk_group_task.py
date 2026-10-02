@@ -14,10 +14,12 @@ from tools.rl.examples.group_fight_task import (
     Rule,
     kite_rule,
     life_kite_rule,
+    spread_rule,
 )
 
 KITE_DISTANCES = (2.0, 3.0, 5.0)
 LIFE_KITE_DISTANCES = (3.0, 5.0)
+SPREAD_SPACINGS = (1.0, 1.5)  # center to center, against splash such as a siege tank's
 
 
 class HydraliskGroupTask(GroupFightTask):
@@ -30,4 +32,6 @@ class HydraliskGroupTask(GroupFightTask):
             rules[f"kite_threat_{distance:g}"] = lambda observation, d=distance: kite_rule(observation, d, ATTACK_DANGEROUS)
         for distance in LIFE_KITE_DISTANCES:
             rules[f"life_kite_{distance:g}"] = lambda observation, d=distance: life_kite_rule(observation, d)
+        for spacing in SPREAD_SPACINGS:
+            rules[f"spread_always_{spacing:g}"] = lambda observation, s=spacing: spread_rule(observation, s, always=True)
         return rules

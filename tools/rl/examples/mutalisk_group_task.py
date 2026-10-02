@@ -14,16 +14,15 @@ from sc2.position import Point2
 from tools.rl.examples.free_kite_task import RAY_LENGTH
 from tools.rl.examples.group_fight_task import (
     ATTACK_CLOSEST,
-    COOLDOWN,
     LIFE,
     GroupFightTask,
     Rule,
     allies_center,
-    closest_ally_offset,
     closest_enemy_distance,
     kite_rule,
     life_kite_rule,
     move_toward,
+    spread_rule,
 )
 
 KITE_DISTANCE = 6.0  # a marine's range plus a margin
@@ -80,16 +79,6 @@ class MutaliskGroupTask(GroupFightTask):
             "spread_always_1_life_kite": lambda observation: spread_rule(
                 observation, 1.0, life_kite_rule(observation, SHORT_KITE_DISTANCE), always=True),
         }
-
-
-def spread_rule(observation: np.ndarray, spacing: float, otherwise: int = ATTACK_CLOSEST, always: bool = False) -> int:
-    """While the weapon cools down (or `always`) and the closest ally is within `spacing`, fly
-    straight away from it (against splash, like a thor's, that hits units bunched together);
-    else `otherwise`."""
-    ally = closest_ally_offset(observation)
-    if (always or observation[COOLDOWN] > 0) and ally is not None and ally.length <= spacing:
-        return move_toward(-ally)
-    return otherwise
 
 
 def hurt_kite_rule(observation: np.ndarray, hurt_below: float) -> int:

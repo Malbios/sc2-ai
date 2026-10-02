@@ -1064,6 +1064,14 @@ class RoachGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.task.baseline_policies()["life_kite_5"](self.task.observe(self.roach, [], [near_marine])),
                          ATTACK_CLOSEST)
 
+    def test_spread_always_moves_off_a_close_ally(self):
+        from tools.rl.examples.group_fight_task import FIRST_MOVE
+
+        south = FIRST_MOVE + 6
+        close = [StandInFighter(2, 20.5, 21.3, health=145, health_max=145)]  # 0.8 north
+        observation = self.task.observe(self.roach, close, [self.marine])
+        self.assertEqual(self.task.baseline_policies()["spread_always_1"](observation), south)
+
     def test_es_rotate_roach_starting_policy_is_life_kite_5(self):
         from tools.rl.es import FAMILIES, LIFE_KITE_THETA0
 
@@ -1082,7 +1090,7 @@ class RoachGroupTaskTest(unittest.TestCase):
 
         from tools.rl.config import load_config
 
-        for name in ("roach_group_sizes", "roach_group_builtin"):
+        for name in ("roach_group_sizes", "roach_group_builtin", "roach_hellbat_calibration", "roach_tank_calibration"):
             with self.subTest(name):
                 config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
                 largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
@@ -1306,21 +1314,34 @@ class HydraliskGroupTaskTest(unittest.TestCase):
         west = FIRST_MOVE + 4
         self.assertEqual(sorted(self.task.baseline_policies()),
                          ["attack", "kite_2", "kite_3", "kite_5", "kite_threat_2", "kite_threat_3", "kite_threat_5",
-                          "life_kite_3", "life_kite_5"])
+                          "life_kite_3", "life_kite_5", "spread_always_1", "spread_always_1.5"])
         self.assertEqual(self.rule("kite_threat_3"), ATTACK_DANGEROUS)  # weapon ready
         self.hydra.weapon_cooldown = 5.0
         self.assertEqual(self.rule("kite_3"), west)
         self.assertEqual(self.rule("kite_threat_3"), west)
         self.assertEqual(self.rule("kite_2"), ATTACK_CLOSEST)  # the zealot is 2.5 away
 
+    def test_spread_always_moves_off_a_close_ally(self):
+        from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
+
+        south = FIRST_MOVE + 6
+        close = [StandInFighter(2, 20.5, 21.3, health=90, health_max=90)]  # 0.8 north
+        rules = self.task.baseline_policies()
+        observation = self.task.observe(self.hydra, close, [self.zealot])
+        self.assertEqual(rules["spread_always_1"](observation), south)
+        far = self.task.observe(self.hydra, [StandInFighter(2, 20.5, 22.5, health=90, health_max=90)], [self.zealot])
+        self.assertEqual(rules["spread_always_1.5"](far), ATTACK_CLOSEST)  # 2 away
+
     def test_group_slots_cover_the_largest_calibration_group(self):
         from pathlib import Path
 
         from tools.rl.config import load_config
 
-        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/hydralisk_group_calibration.yaml")
-        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
-        self.assertLessEqual(largest, self.task.group_slots)
+        for name in ("hydralisk_group_calibration", "hydralisk_marine_calibration", "hydralisk_tank_calibration"):
+            with self.subTest(name):
+                config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
+                largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+                self.assertLessEqual(largest, self.task.group_slots)
 
 
 class StandInGroupCaster(StandInFighter):
