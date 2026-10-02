@@ -1084,6 +1084,19 @@ class RoachGroupTaskTest(unittest.TestCase):
         observation = self.task.observe(self.roach, close, [self.marine])
         self.assertEqual(self.task.baseline_policies()["spread_always_1"](observation), south)
 
+    def test_es_rotate_roach_7_starting_policy_is_life_kite_7(self):
+        from tools.rl.es import FAMILIES, LIFE_KITE_THETA0
+
+        policy, rule = FAMILIES["rotate_roach_7"].policy(LIFE_KITE_THETA0), self.task.baseline_policies()["life_kite_7"]
+        self.roach.health = 72  # half life
+        for distance in (6.5, 7.5):
+            for cooldown in (8.0, 24.0):  # 25% and 75% of the cooldown left
+                marine = StandInFighter(10, 20.5 + distance, 20.5, health=45, health_max=45, dps=10.0, ground_range=5)
+                self.roach.weapon_cooldown = cooldown
+                observation = self.task.observe(self.roach, [], [marine])
+                with self.subTest(distance=distance, cooldown=cooldown):
+                    self.assertEqual(policy(observation), rule(observation))
+
     def test_es_rotate_roach_starting_policy_is_life_kite_5(self):
         from tools.rl.es import FAMILIES, LIFE_KITE_THETA0
 

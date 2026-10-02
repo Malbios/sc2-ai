@@ -11,8 +11,8 @@ exactly at the rule:
   whether to attack the weakest in range instead of the closest. KITE_THETA0 is the kite rule at
   the family's distance (kite_4.5 for mutalisks). kite_hydra_threat shoots the most dangerous
   instead of the closest, starting at kite_threat_5.
-- rotate_roach, rotate_mutalisk: the same decisions, starting at life_kite instead
-  (LIFE_KITE_THETA0).
+- rotate_roach, rotate_roach_7, rotate_mutalisk: the same decisions, starting at life_kite
+  instead (LIFE_KITE_THETA0).
 - spread_mutalisk (mutalisks vs thors): a score to fly away from the closest ally first, then the
   kite decisions. SPREAD_THETA0 is spread_1.
 
@@ -99,6 +99,7 @@ KITE_FEATURES = ("bias", "cooling", "enemy within D", "cooldown left", "closest 
                  "enemies within D + 1.5", "allies center distance")
 MUTALISK_KITE_DISTANCE = 4.5
 ROACH_KITE_DISTANCE = 5.0  # center to center: a roach's range 4 plus both radii
+ROACH_LONG_KITE_DISTANCE = 7.0  # life_kite_7, the best rule against stalkers (range 6)
 HYDRALISK_KITE_DISTANCE = 3.0
 HYDRALISK_THREAT_KITE_DISTANCE = 5.0  # kite_threat_5, the best rule against built-in AI marines
 CROWD_MARGIN = 1.5
@@ -191,6 +192,7 @@ FAMILIES = {
     "kite_hydra_threat": Family(KITE_THETA0, partial(kite_policy, distance=HYDRALISK_THREAT_KITE_DISTANCE,
                                                      attack=ATTACK_DANGEROUS), 40),
     "rotate_roach": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=ROACH_KITE_DISTANCE), 20),
+    "rotate_roach_7": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=ROACH_LONG_KITE_DISTANCE), 20),
     "rotate_mutalisk": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=MUTALISK_KITE_DISTANCE), 20),
     "spread_mutalisk": Family(SPREAD_THETA0, spread_policy, 20),
 }
