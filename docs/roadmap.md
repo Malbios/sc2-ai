@@ -105,6 +105,10 @@ Several learner units already share one model in a fight, each deciding for itse
 - [x] Three more fights through the gates, against the built-in AI (design doc): mutalisks vs
       marines + thors (spreading alone wins 98 to 99%, no room left), zerglings vs marines (no
       rule beats attack-move), bile search (climbed to the best bile rule, not past it).
+- [x] Survey of four more fights against the built-in AI (design doc): hydralisks vs marines
+      passes with room (kite_threat_5 57% vs attack 26%); roaches vs hellbats saturates (96 to
+      100%); both siege tank fights fail the headroom gate.
+- [ ] A search on hydralisks vs marines, starting at kite_threat_5.
 
 ## 4. The bot itself
 

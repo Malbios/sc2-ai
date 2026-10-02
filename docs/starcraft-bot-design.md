@@ -741,6 +741,27 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
     20 generations, 20 minutes). Final weights 95 / 66% (12 + 3 / 14 + 3 bio): +11 over its
     start (the clump rule, 93 / 55%) in the harder fight, but level with the most dangerous
     rule (94 / 73%, short of the +10 bar). The search climbed to the best hand rule, not past.
+- **A survey of four more fights against the built-in AI: one candidate for a search.**
+  Calibration in two rounds (the hydralisks won every first-round size). Each build, 100 fights
+  per fight, averaged:
+
+  | fight (size) | attack | kite_threat_5 / threat | life_kite_5 | spread_always 1 / 1.5 |
+  |---|---|---|---|---|
+  | hydralisks vs marines (8 vs 20) | 26% | 57% | 25% | 27 / 0% |
+  | hydralisks vs marines + tanks (8 vs 8 + 3) | 78% | 80% | 82% | 82 / 0% |
+  | hydralisks vs marines + tanks (8 vs 10 + 3) | 5% | 6% | 4% | 8 / 0% |
+  | roaches vs hellbats (8 vs 8) | 38% | 96% | 100% | 37 / 11% |
+  | roaches vs marines + tanks (10 vs 8 + 3) | 51% | 55% | 53% | 0 / 0% |
+
+  - **Hydralisks vs marines passes with room:** kiting within 5 while shooting the most
+    dangerous adds 31 points (47 to 65% per build), far from 100%. The next search candidate.
+  - **Roaches vs hellbats passes but is saturated:** shooting the most dangerous (96%) or
+    rotating (100%) wins nearly everything; no room for a search.
+  - **Siege tank fights fail the headroom gate:** no rule adds more than 5 points.
+  - **Spreading as written doesn't work for ground units:** 1.5 apart loses everything in
+    every fight (units keep walking off each other instead of fighting), 1 apart is level or
+    worse. Ground units can't overlap (a roach is 1.25 across), so the rule needs a different
+    form for them.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
