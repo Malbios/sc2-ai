@@ -9,7 +9,8 @@ exactly at the rule:
   the clump rule's. THETA0 is the clump rule.
 - kite (mutalisk fight), kite_roach, kite_hydra: one score decides whether to back off, another
   whether to attack the weakest in range instead of the closest. KITE_THETA0 is the kite rule at
-  the family's distance (kite_4.5 for mutalisks).
+  the family's distance (kite_4.5 for mutalisks). kite_hydra_threat shoots the most dangerous
+  instead of the closest, starting at kite_threat_5.
 - rotate_roach, rotate_mutalisk: the same decisions, starting at life_kite instead
   (LIFE_KITE_THETA0).
 - spread_mutalisk (mutalisks vs thors): a score to fly away from the closest ally first, then the
@@ -99,6 +100,7 @@ KITE_FEATURES = ("bias", "cooling", "enemy within D", "cooldown left", "closest 
 MUTALISK_KITE_DISTANCE = 4.5
 ROACH_KITE_DISTANCE = 5.0  # center to center: a roach's range 4 plus both radii
 HYDRALISK_KITE_DISTANCE = 3.0
+HYDRALISK_THREAT_KITE_DISTANCE = 5.0  # kite_threat_5, the best rule against built-in AI marines
 CROWD_MARGIN = 1.5
 # Back off: bias -1.5, cooling +1, within D +1 (the kite rule at D); attack the weakest: never.
 KITE_THETA0 = np.array([-1.5, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -122,9 +124,9 @@ def kite_features(observation: np.ndarray, distance: float) -> np.ndarray:
                      center.length / DISTANCE_SCALE if center is not None else 0.0], dtype=np.float32)
 
 
-def kite_policy(theta: np.ndarray, distance: float) -> Callable[[np.ndarray], int]:
+def kite_policy(theta: np.ndarray, distance: float, attack: int = ATTACK_CLOSEST) -> Callable[[np.ndarray], int]:
     """Back off (step away from the enemies) when the first score is above 0; otherwise attack,
-    the weakest in range when the second score is above 0, else the closest."""
+    the weakest in range when the second score is above 0, else `attack`."""
     back_off, weakest = theta[:len(KITE_FEATURES)], theta[len(KITE_FEATURES):]
 
     def policy(observation: np.ndarray) -> int:
@@ -133,7 +135,7 @@ def kite_policy(theta: np.ndarray, distance: float) -> Callable[[np.ndarray], in
         features = kite_features(observation, distance)
         if features @ back_off > 0:
             return step_away(observation)
-        return ATTACK_WEAKEST if features @ weakest > 0 else ATTACK_CLOSEST
+        return ATTACK_WEAKEST if features @ weakest > 0 else attack
     return policy
 
 
@@ -186,6 +188,8 @@ FAMILIES = {
     "kite": Family(KITE_THETA0, partial(kite_policy, distance=MUTALISK_KITE_DISTANCE), 20),
     "kite_roach": Family(KITE_THETA0, partial(kite_policy, distance=ROACH_KITE_DISTANCE), 20),
     "kite_hydra": Family(KITE_THETA0, partial(kite_policy, distance=HYDRALISK_KITE_DISTANCE), 40),
+    "kite_hydra_threat": Family(KITE_THETA0, partial(kite_policy, distance=HYDRALISK_THREAT_KITE_DISTANCE,
+                                                     attack=ATTACK_DANGEROUS), 40),
     "rotate_roach": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=ROACH_KITE_DISTANCE), 20),
     "rotate_mutalisk": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=MUTALISK_KITE_DISTANCE), 20),
     "spread_mutalisk": Family(SPREAD_THETA0, spread_policy, 20),

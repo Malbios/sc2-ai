@@ -1322,6 +1322,18 @@ class HydraliskGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.rule("kite_threat_3"), west)
         self.assertEqual(self.rule("kite_2"), ATTACK_CLOSEST)  # the zealot is 2.5 away
 
+    def test_es_kite_hydra_threat_starting_policy_is_kite_threat_5(self):
+        from tools.rl.es import FAMILIES, KITE_THETA0
+
+        policy, rule = FAMILIES["kite_hydra_threat"].policy(KITE_THETA0), self.task.baseline_policies()["kite_threat_5"]
+        for cooldown in (0.0, 5.0):
+            for distance in (4.0, 6.0):
+                self.hydra.weapon_cooldown = cooldown
+                self.zealot.position = Point2((20.5 + distance, 20.5))
+                observation = self.task.observe(self.hydra, [], [self.zealot])
+                with self.subTest(cooldown=cooldown, distance=distance):
+                    self.assertEqual(policy(observation), rule(observation))
+
     def test_spread_always_moves_off_a_close_ally(self):
         from tools.rl.examples.group_fight_task import ATTACK_CLOSEST, FIRST_MOVE
 
