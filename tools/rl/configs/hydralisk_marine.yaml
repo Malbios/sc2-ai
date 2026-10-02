@@ -1,0 +1,34 @@
+# The survey fight picked by calibration (hydralisk_marine_calibration.yaml, the attack rule, 20
+# fights per built-in AI build): attack-move wins 30% with 8 hydralisks against 20 marines (16:
+# 100%, 24: none). Every rule, per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_marine.yaml --baseline attack --episodes 100 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.hydralisk_group_task:HydraliskGroupTask
+  upgrades: [EvolveMuscularAugments, EvolveGroovedSpines]
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: hydralisk_marine_8v20m
+    learner: {Hydralisk: 8}
+    enemy: {Marine: 20}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

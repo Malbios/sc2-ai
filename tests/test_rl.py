@@ -1090,7 +1090,8 @@ class RoachGroupTaskTest(unittest.TestCase):
 
         from tools.rl.config import load_config
 
-        for name in ("roach_group_sizes", "roach_group_builtin", "roach_hellbat_calibration", "roach_tank_calibration"):
+        for name in ("roach_group_sizes", "roach_group_builtin", "roach_hellbat_calibration", "roach_tank_calibration",
+                     "roach_hellbat", "roach_tank"):
             with self.subTest(name):
                 config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
                 largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
@@ -1337,7 +1338,8 @@ class HydraliskGroupTaskTest(unittest.TestCase):
 
         from tools.rl.config import load_config
 
-        for name in ("hydralisk_group_calibration", "hydralisk_marine_calibration", "hydralisk_tank_calibration"):
+        for name in ("hydralisk_group_calibration", "hydralisk_marine_calibration", "hydralisk_tank_calibration",
+                     "hydralisk_marine", "hydralisk_tank"):
             with self.subTest(name):
                 config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
                 largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
