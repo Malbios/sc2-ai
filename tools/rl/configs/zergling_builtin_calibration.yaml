@@ -1,0 +1,64 @@
+# Calibration for the zergling fight against the built-in AI (zergling_surround.yaml used the
+# scripted enemy): zerglings with Metabolic Boost against marines, the attack rule, to find sizes
+# where attack-move wins 15 to 70% (then zergling_builtin.yaml). Run per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/zergling_builtin_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.zergling_surround_task:ZerglingSurroundTask
+  upgrades: [ZerglingMovementSpeed]
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: lings_8v5_builtin
+    learner: {Zergling: 8}
+    enemy: {Marine: 5}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v6_builtin
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_8v7_builtin
+    learner: {Zergling: 8}
+    enemy: {Marine: 7}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v8_builtin
+    learner: {Zergling: 12}
+    enemy: {Marine: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_builtin
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v10_builtin
+    learner: {Zergling: 12}
+    enemy: {Marine: 10}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

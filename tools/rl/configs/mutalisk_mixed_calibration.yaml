@@ -1,0 +1,53 @@
+# Calibration for the mixed mutalisk fight: mutalisks against the built-in AI's marines and thors,
+# where rotation (life_kite, good against marines) and spreading (spread_always_1, good against
+# thors) may conflict. The attack rule, to find sizes where attack-move wins 15 to 70% (then
+# mutalisk_mixed.yaml). Marines are listed first and the order stays fixed: it sets the spawn
+# formation. Run per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_mixed_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: mutas_10v8m1t
+    learner: {Mutalisk: 10}
+    enemy: {Marine: 8, Thor: 1}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_10v6m2t
+    learner: {Mutalisk: 10}
+    enemy: {Marine: 6, Thor: 2}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_12v10m1t
+    learner: {Mutalisk: 12}
+    enemy: {Marine: 10, Thor: 1}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_12v8m2t
+    learner: {Mutalisk: 12}
+    enemy: {Marine: 8, Thor: 2}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

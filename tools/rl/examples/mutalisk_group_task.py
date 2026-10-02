@@ -77,6 +77,8 @@ class MutaliskGroupTask(GroupFightTask):
                for spacing in ALWAYS_SPREAD_SPACINGS},
             "spread_1.5_life_kite": lambda observation: spread_rule(
                 observation, 1.5, life_kite_rule(observation, SHORT_KITE_DISTANCE)),
+            "spread_always_1_life_kite": lambda observation: spread_rule(
+                observation, 1.0, life_kite_rule(observation, SHORT_KITE_DISTANCE), always=True),
         }
 
 

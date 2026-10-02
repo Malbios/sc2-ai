@@ -45,6 +45,7 @@ INPUTS = FIRST_RAY + len(DIRECTIONS)
 # unit is past the enemies' center; until then it runs for a point this far beside and behind them.
 FLANK_ENGAGE = 1.5
 FLANK_RADIUS = 3.0
+FLANK_RADIUS_VARIANTS = (2.0, 4.0)
 
 
 class ZerglingSurroundTask(FreeKiteTask):
@@ -123,16 +124,20 @@ class ZerglingSurroundTask(FreeKiteTask):
         return self.win_reward_scale * left / self._group_size
 
     def baseline_policies(self) -> dict[str, Callable[[np.ndarray], int]]:
-        return {"attack": lambda observation: ATTACK_CLOSEST, "flank": _flank_rule}
+        rules = {"attack": lambda observation: ATTACK_CLOSEST, "flank": lambda observation: _flank_rule(observation, FLANK_RADIUS)}
+        for radius in FLANK_RADIUS_VARIANTS:
+            rules[f"flank_{radius:g}"] = lambda observation, r=radius: _flank_rule(observation, r)
+        return rules
 
     def situation(self, observation: np.ndarray) -> str:
         return "all"
 
 
-def _flank_rule(observation: np.ndarray) -> int:
-    """Run around the enemies to their far side, on the side of the line from the allies to the
-    enemies that the unit is already on, then attack the closest. Attacks right away once the
-    closest enemy is within FLANK_ENGAGE or the unit is past the enemies' center."""
+def _flank_rule(observation: np.ndarray, radius: float) -> int:
+    """Run around the enemies to their far side (for a point `radius` beside and behind them), on
+    the side of the line from the allies to the enemies that the unit is already on, then attack
+    the closest. Attacks right away once the closest enemy is within FLANK_ENGAGE or the unit is
+    past the enemies' center."""
     enemies = _present(observation, FIRST_ENEMY, ENEMY_INPUTS, SEEN_ENEMIES)
     if not enemies:
         return ATTACK_CLOSEST
@@ -147,7 +152,7 @@ def _flank_rule(observation: np.ndarray) -> int:
         return ATTACK_CLOSEST
     beside = Point2((-forward.y, forward.x))
     side = 1.0 if _dot(-group_center, beside) >= 0 else -1.0
-    goal = enemy_center + (beside * side + forward) * FLANK_RADIUS
+    goal = enemy_center + (beside * side + forward) * radius
     return FIRST_MOVE + max(range(len(DIRECTIONS)), key=lambda k: _dot(DIRECTIONS[k], goal))
 
 

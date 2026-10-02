@@ -914,6 +914,15 @@ class ZerglingSurroundTaskTest(unittest.TestCase):
         self.assertEqual(self.flank([self.zergling(2, 20.5, 18.5)], [self.east]), northeast)  # allies south
         self.assertEqual(self.flank([self.zergling(2, 20.5, 22.5)], [self.east]), southeast)  # allies north
 
+    def test_flank_radius_sets_how_wide_it_runs(self):
+        from tools.rl.examples.free_kite_task import FIRST_MOVE
+
+        east, northeast = FIRST_MOVE, FIRST_MOVE + 1
+        observation = self.task.observe(self.ling, [self.zergling(2, 20.5, 18.5)], [self.east])
+        rules = self.task.baseline_policies()
+        self.assertEqual(rules["flank_2"](observation), east)  # aims about 20 degrees left of the marine
+        self.assertEqual(rules["flank_4"](observation), northeast)  # about 30 degrees
+
     def test_flank_attacks_when_close_or_past_the_enemies(self):
         from tools.rl.examples.free_kite_task import ATTACK_CLOSEST
 
@@ -948,9 +957,11 @@ class ZerglingSurroundTaskTest(unittest.TestCase):
 
         from tools.rl.config import load_config
 
-        config = load_config(Path(__file__).parents[1] / "tools/rl/configs/zergling_surround_calibration.yaml")
-        largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
-        self.assertLessEqual(largest, self.task.group_slots)
+        for name in ("zergling_surround_calibration", "zergling_builtin_calibration"):
+            with self.subTest(name):
+                config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
+                largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
+                self.assertLessEqual(largest, self.task.group_slots)
 
 
 class StandInFighter(StandInUnit):
@@ -1234,6 +1245,17 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.rule("spread_1", close, marine), ATTACK_CLOSEST)
         self.assertEqual(self.rule("spread_always_0.75", close, marine), ATTACK_CLOSEST)
 
+    def test_spread_always_life_kite_spreads_first_then_rotates(self):
+        from tools.rl.examples.group_fight_task import FIRST_MOVE, step_away
+
+        south = FIRST_MOVE + 6
+        marine = [self.marine(10, 9.5, 20.5)]
+        close, far = [StandInFighter(2, 5.5, 21.3, health=120, health_max=120)], [StandInFighter(2, 5.5, 23.5, health=120, health_max=120)]
+        self.muta.health, self.muta.weapon_cooldown = 30, 18.0  # a quarter of its life, 75% of the cooldown left
+        self.assertEqual(self.rule("spread_always_1_life_kite", close, marine), south)
+        observation = self.task.observe(self.muta, far, marine)
+        self.assertEqual(self.task.baseline_policies()["spread_always_1_life_kite"](observation), step_away(observation))
+
     def test_es_spread_mutalisk_starting_policy_is_spread_1(self):
         from tools.rl.es import FAMILIES, SPREAD_THETA0
 
@@ -1254,7 +1276,7 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         from tools.rl.config import load_config
 
         for name in ("mutalisk_group_calibration", "mutalisk_group", "mutalisk_group_sizes", "mutalisk_group_builtin",
-                     "mutalisk_thor_calibration", "mutalisk_thor"):
+                     "mutalisk_thor_calibration", "mutalisk_thor", "mutalisk_mixed_calibration"):
             with self.subTest(name):
                 config = load_config(Path(__file__).parents[1] / f"tools/rl/configs/{name}.yaml")
                 largest = max(sum(scenario.learner.values()) for scenario in config.scenarios)
