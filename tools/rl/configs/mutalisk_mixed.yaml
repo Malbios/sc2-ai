@@ -1,0 +1,40 @@
+# The mixed mutalisk fights picked by calibration (mutalisk_mixed_calibration.yaml, the attack
+# rule, 20 fights per built-in AI build): attack-move wins 26% with 10 mutalisks against 6 marines
+# and 2 thors, and 46% with 12 against 8 and 2 (one thor: 85 to 100%). Marines listed first, as in
+# calibration (the order sets the formation). Every rule, per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_mixed.yaml --baseline spread_always_1_life_kite --episodes 100 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the tasks' movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: mutas_10v6m2t
+    learner: {Mutalisk: 10}
+    enemy: {Marine: 6, Thor: 2}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutas_12v8m2t
+    learner: {Mutalisk: 12}
+    enemy: {Marine: 8, Thor: 2}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

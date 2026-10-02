@@ -1,0 +1,41 @@
+# The zergling fights picked by calibration (zergling_builtin_calibration.yaml, the attack rule,
+# 20 fights per built-in AI build): attack-move wins 35% with 8 zerglings against 6 marines and
+# 12% with 12 against 9 (just under the 15% aimed for; 8v5 and 12v8 90 to 100%, 8v7 and 12v10
+# none). Every rule, per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/zergling_builtin.yaml --baseline flank --episodes 100 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.zergling_surround_task:ZerglingSurroundTask
+  upgrades: [ZerglingMovementSpeed]
+
+enemy:
+  mode: builtin
+  race: Terran
+  difficulty: VeryHard
+
+scenarios:
+  - name: lings_8v6_builtin
+    learner: {Zergling: 8}
+    enemy: {Marine: 6}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: lings_12v9_builtin
+    learner: {Zergling: 12}
+    enemy: {Marine: 9}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
