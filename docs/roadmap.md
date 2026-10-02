@@ -116,7 +116,11 @@ Several learner units already share one model in a fight, each deciding for itse
       mutalisks (kite_threat_5 62%), roaches vs stalkers (life_kite_7 79 / 88%) and mutalisks
       vs hydralisks (life_kite 28%); the roach mirror saturates; hydralisks vs stalkers and
       mutalisks vs phoenixes have no headroom.
-- [ ] Searches on the three, each from its best rule, against the built-in AI.
+- [x] Searches on the three, each from its best rule, against the built-in AI (design doc):
+      mutalisks vs hydralisks 30% to 78%; hydralisks vs mutalisks 61% to 75% (repeated);
+      roaches vs stalkers fell from 82 / 90% to 31 / 59% (the search left a narrow peak).
+- [ ] Hand-rule checks for the two gains (mutalisks: healthy ones back off early in the
+      cooldown too; hydralisks: back off early in the cooldown at any distance).
 
 ## 4. The bot itself
 

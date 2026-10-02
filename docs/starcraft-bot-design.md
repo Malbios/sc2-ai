@@ -799,6 +799,25 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
     everything) and mutalisks vs phoenixes.
   - Rotation (life_kite) helped in 4 of 6 fights, wherever the enemy is ranged and the limit
     covers its range. Spreading lost every non-thor fight.
+- **Searches on the three Zerg survey fights: two gains, one loss.** Each from its best rule,
+  20 generations against the built-in AI; each build, 100 fights per fight, averaged:
+  - **Mutalisks vs hydralisks (12 vs 11), rotate_mutalisk:** start (life_kite) 30%, final 78%
+    (+35 to +54 per build), best generation (20) 64%. Learned back-off weights: cooldown left
+    1.0 to 1.48, a hydralisk within 4.5 1.5 to 1.37, life -1.0 to -0.86, cooling 0 to 0.33.
+    With a hydralisk close, even a healthy mutalisk now backs off in the first half of its
+    cooldown (life_kite only let hurt ones), so it kites more (44% of decisions, from 27%).
+  - **Hydralisks vs mutalisks (8 vs 10), kite_hydra_threat:** start 61%, final 75%; a repeat
+    gave 62% and 73%, so +11 to +15, real but modest. Learned: cooling 1.0 to 1.3, a mutalisk
+    within 5 1.0 to 0.65, cooldown left 0 to 0.62: back off early in the cooldown at any
+    distance, then come back before the weapon is ready (kite_threat_any, backing off for the
+    whole cooldown, measured only 48%).
+  - **Roaches vs stalkers (8 vs 7 / 12 vs 10), rotate_roach_7:** start (life_kite_7) 82 / 90%,
+    final 31 / 59%. The search walked off the rule: its first generation's candidates (the
+    rule with small random changes) won only 24 / 45%, so the rule sits on a narrow peak, and
+    following the least-bad candidates shrank the back-off weights until roaches stopped
+    rotating (4% of decisions, from 33%). This search can leave a sharp optimum: it judges
+    directions by nearby candidates, never by the current weights themselves. The per-build
+    check against the start is what catches it.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
