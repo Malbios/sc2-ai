@@ -18,6 +18,10 @@ from tools.rl.examples.group_fight_task import (
 )
 
 KITE_DISTANCES = (2.0, 3.0, 5.0)
+# Against marines a hydralisk fires from about 7 center to center, so a limit of 5 hardly ever
+# lets it back off; these go past that, and ANY_DISTANCE is beyond any enemy it can see.
+LONG_KITE_DISTANCES = (7.0, 9.0)
+ANY_DISTANCE = 50.0
 LIFE_KITE_DISTANCES = (3.0, 5.0)
 SPREAD_SPACINGS = (1.0, 1.5)  # center to center, against splash such as a siege tank's
 
@@ -30,6 +34,10 @@ class HydraliskGroupTask(GroupFightTask):
         for distance in KITE_DISTANCES:
             rules[f"kite_{distance:g}"] = lambda observation, d=distance: kite_rule(observation, d)
             rules[f"kite_threat_{distance:g}"] = lambda observation, d=distance: kite_rule(observation, d, ATTACK_DANGEROUS)
+        for distance in LONG_KITE_DISTANCES:
+            rules[f"kite_threat_{distance:g}"] = lambda observation, d=distance: kite_rule(observation, d, ATTACK_DANGEROUS)
+        rules["kite_any"] = lambda observation: kite_rule(observation, ANY_DISTANCE)
+        rules["kite_threat_any"] = lambda observation: kite_rule(observation, ANY_DISTANCE, ATTACK_DANGEROUS)
         for distance in LIFE_KITE_DISTANCES:
             rules[f"life_kite_{distance:g}"] = lambda observation, d=distance: life_kite_rule(observation, d)
         for spacing in SPREAD_SPACINGS:

@@ -1314,13 +1314,26 @@ class HydraliskGroupTaskTest(unittest.TestCase):
 
         west = FIRST_MOVE + 4
         self.assertEqual(sorted(self.task.baseline_policies()),
-                         ["attack", "kite_2", "kite_3", "kite_5", "kite_threat_2", "kite_threat_3", "kite_threat_5",
-                          "life_kite_3", "life_kite_5", "spread_always_1", "spread_always_1.5"])
+                         ["attack", "kite_2", "kite_3", "kite_5", "kite_any", "kite_threat_2", "kite_threat_3",
+                          "kite_threat_5", "kite_threat_7", "kite_threat_9", "kite_threat_any", "life_kite_3",
+                          "life_kite_5", "spread_always_1", "spread_always_1.5"])
         self.assertEqual(self.rule("kite_threat_3"), ATTACK_DANGEROUS)  # weapon ready
         self.hydra.weapon_cooldown = 5.0
         self.assertEqual(self.rule("kite_3"), west)
         self.assertEqual(self.rule("kite_threat_3"), west)
         self.assertEqual(self.rule("kite_2"), ATTACK_CLOSEST)  # the zealot is 2.5 away
+
+    def test_kite_any_backs_off_at_any_distance_while_cooling(self):
+        from tools.rl.examples.group_fight_task import ATTACK_DANGEROUS, FIRST_MOVE
+
+        west = FIRST_MOVE + 4
+        self.zealot.position = Point2((28.5, 20.5))  # 8 away
+        self.assertEqual(self.rule("kite_threat_any"), ATTACK_DANGEROUS)  # weapon ready
+        self.hydra.weapon_cooldown = 5.0
+        self.assertEqual(self.rule("kite_threat_any"), west)
+        self.assertEqual(self.rule("kite_threat_9"), west)
+        self.assertEqual(self.rule("kite_threat_7"), ATTACK_DANGEROUS)
+        self.assertEqual(self.rule("kite_threat_5"), ATTACK_DANGEROUS)
 
     def test_es_kite_hydra_threat_starting_policy_is_kite_threat_5(self):
         from tools.rl.es import FAMILIES, KITE_THETA0
