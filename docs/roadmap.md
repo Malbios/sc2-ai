@@ -98,7 +98,9 @@ Several learner units already share one model in a fight, each deciding for itse
       short of the bar (design doc).
 - [x] Magic box headroom check, mutalisks vs built-in AI thors: spreading 1 apart wins 92 / 43%
       against attack-move's 43 / 20%; the spacing matters; rotation loses (design doc).
-- [ ] A search starting at spread_1, against the built-in AI.
+- [x] A search starting at spread_1, against the built-in AI: 93 / 44% to 100 / 75%, gaining 27
+      to 35 points against every build in the harder fight (design doc).
+- [ ] Check it with a hand rule: keep 1 apart all the time, not only while the weapon cools.
 
 ## 4. The bot itself
 

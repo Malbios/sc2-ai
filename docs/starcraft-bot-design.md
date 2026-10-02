@@ -700,7 +700,19 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   Spreading adds 23 to 50 points, and the spacing matters (1 beats 2.5 by 9 and 16), so both
   headroom bars pass. Rotation is useless here: the thors outrange mutalisks (10 against 3), so
   stepping back only loses shots; with spreading it costs 2 to 5. The builds again barely
-  differ (within about 10 points of each other per rule). Next: a search starting at spread_1.
+  differ (within about 10 points of each other per rule).
+- **A search starting at spread_1 improved it by 31 points in the harder fight.**
+  spread_mutalisk: a spread score (8 features: bias, cooling, an ally within 1, closest ally
+  distance, allies within 2, cooldown left, life, closest enemy distance) before the kite
+  decisions, starting exactly at spread_1. 20 generations against the built-in AI (random
+  builds per worker), 20 minutes. Each build, 100 fights per fight, averaged (11v3 / 7v2):
+  start 93 / 44% (spread_1: 92 / 43%), final 100 / 75%, best generation (16) 100 / 74%. Every
+  build gained 27 to 35 points in 7v2; life lost fell from 72 to 62% in 11v3. What changed
+  (final spread weights): "an ally within 1" rose from 1.0 to 1.5 while "cooling" fell from
+  1.0 to 0.5, so a mutalisk now moves off an ally within 1 even when its weapon is ready (the
+  count of allies within 2 and the distance to the enemy add to it); back off and the weakest
+  stayed off. In words: keep the spacing all the time, not only between shots. A hand rule
+  written that way should be checked next, as with life_kite.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
