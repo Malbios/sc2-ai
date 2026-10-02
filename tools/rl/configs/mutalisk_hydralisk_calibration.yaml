@@ -1,6 +1,7 @@
 # Zerg survey calibration: mutalisks against the built-in AI's (Zerg) hydralisks. The attack rule,
-# to find sizes where attack-move wins 15 to 70% (then mutalisk_hydralisk.yaml). Round 1: 10
-# mutalisks won every fight against 4, 6 or 8 hydralisks. Run per build:
+# to find sizes where attack-move wins 15 to 70% (then mutalisk_hydralisk.yaml). Earlier rounds:
+# 10 mutalisks won every fight against 4, 6 or 8 hydralisks and none against 10, 12 or 14. Run per
+# build:
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_hydralisk_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
 
@@ -17,21 +18,21 @@ enemy:
   difficulty: VeryHard
 
 scenarios:
-  - name: mutalisk_hydralisk_10v10h
+  - name: mutalisk_hydralisk_10v9h
     learner: {Mutalisk: 10}
-    enemy: {Hydralisk: 10}
+    enemy: {Hydralisk: 9}
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutalisk_hydralisk_10v12h
-    learner: {Mutalisk: 10}
+  - name: mutalisk_hydralisk_12v11h
+    learner: {Mutalisk: 12}
+    enemy: {Hydralisk: 11}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: mutalisk_hydralisk_12v12h
+    learner: {Mutalisk: 12}
     enemy: {Hydralisk: 12}
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: mutalisk_hydralisk_10v14h
-    learner: {Mutalisk: 10}
-    enemy: {Hydralisk: 14}
     distance: [10, 12]
     time_limit: 60
 
