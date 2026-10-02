@@ -1,6 +1,7 @@
 # Survey calibration: roaches against the built-in AI's hellbats. The attack rule, to find sizes
 # where attack-move wins 15 to 70% (then roach_hellbat.yaml). Marines are listed first in mixed
 # fights and the order stays fixed: it sets the spawn formation. Run per build:
+# Round 1: 8 roaches won 100% against 6 hellbats, 38% against 8, 1% against 10 and none against 12.
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/roach_hellbat_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
 
@@ -17,27 +18,15 @@ enemy:
   difficulty: VeryHard
 
 scenarios:
-  - name: roach_hellbat_8v6hb
-    learner: {Roach: 8}
-    enemy: {HellionTank: 6}
-    distance: [10, 12]
-    time_limit: 60
-
   - name: roach_hellbat_8v8hb
     learner: {Roach: 8}
     enemy: {HellionTank: 8}
     distance: [10, 12]
     time_limit: 60
 
-  - name: roach_hellbat_8v10hb
+  - name: roach_hellbat_8v9hb
     learner: {Roach: 8}
-    enemy: {HellionTank: 10}
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: roach_hellbat_8v12hb
-    learner: {Roach: 8}
-    enemy: {HellionTank: 12}
+    enemy: {HellionTank: 9}
     distance: [10, 12]
     time_limit: 60
 

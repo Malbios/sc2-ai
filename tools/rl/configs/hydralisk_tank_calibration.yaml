@@ -2,6 +2,7 @@
 # unsieged). The attack rule, to find sizes where attack-move wins 15 to 70% (then
 # hydralisk_tank.yaml). Marines are listed first in mixed fights and the order stays fixed: it
 # sets the spawn formation. Run per build:
+# 8 hydralisks won every fight against 6 + 2, 8 + 2 and 6 + 3, so these are larger.
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_tank_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
 
@@ -19,21 +20,27 @@ enemy:
   difficulty: VeryHard
 
 scenarios:
-  - name: hydralisk_tank_8v6m2t
+  - name: hydralisk_tank_8v8m3t
     learner: {Hydralisk: 8}
-    enemy: {Marine: 6, SiegeTank: 2}
+    enemy: {Marine: 8, SiegeTank: 3}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydralisk_tank_8v8m2t
+  - name: hydralisk_tank_8v10m3t
     learner: {Hydralisk: 8}
-    enemy: {Marine: 8, SiegeTank: 2}
+    enemy: {Marine: 10, SiegeTank: 3}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydralisk_tank_8v6m3t
+  - name: hydralisk_tank_8v8m4t
     learner: {Hydralisk: 8}
-    enemy: {Marine: 6, SiegeTank: 3}
+    enemy: {Marine: 8, SiegeTank: 4}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: hydralisk_tank_8v10m4t
+    learner: {Hydralisk: 8}
+    enemy: {Marine: 10, SiegeTank: 4}
     distance: [10, 12]
     time_limit: 60
 

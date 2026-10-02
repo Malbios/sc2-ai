@@ -2,6 +2,7 @@
 # unsieged). The attack rule, to find sizes where attack-move wins 15 to 70% (then
 # roach_tank.yaml). Marines are listed first in mixed fights and the order stays fixed: it sets
 # the spawn formation. Run per build:
+# Round 1: 10 roaches won 100% against 8 + 2 and 10 + 2, and 51% against 8 + 3.
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/roach_tank_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
 
@@ -18,21 +19,21 @@ enemy:
   difficulty: VeryHard
 
 scenarios:
-  - name: roach_tank_10v8m2t
-    learner: {Roach: 10}
-    enemy: {Marine: 8, SiegeTank: 2}
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: roach_tank_10v10m2t
-    learner: {Roach: 10}
-    enemy: {Marine: 10, SiegeTank: 2}
-    distance: [10, 12]
-    time_limit: 60
-
   - name: roach_tank_10v8m3t
     learner: {Roach: 10}
     enemy: {Marine: 8, SiegeTank: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roach_tank_10v10m3t
+    learner: {Roach: 10}
+    enemy: {Marine: 10, SiegeTank: 3}
+    distance: [10, 12]
+    time_limit: 60
+
+  - name: roach_tank_10v8m4t
+    learner: {Roach: 10}
+    enemy: {Marine: 8, SiegeTank: 4}
     distance: [10, 12]
     time_limit: 60
 

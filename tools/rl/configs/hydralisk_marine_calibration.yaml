@@ -1,6 +1,7 @@
 # Survey calibration: hydralisks against the built-in AI's marines. The attack rule, to find sizes
 # where attack-move wins 15 to 70% (then hydralisk_marine.yaml). Marines are listed first in mixed
 # fights and the order stays fixed: it sets the spawn formation. Run per build:
+# 8 hydralisks won every fight against 10 to 16 marines, so these are larger.
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_marine_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
 
@@ -18,27 +19,27 @@ enemy:
   difficulty: VeryHard
 
 scenarios:
-  - name: hydralisk_marine_8v10m
+  - name: hydralisk_marine_8v20m
     learner: {Hydralisk: 8}
-    enemy: {Marine: 10}
+    enemy: {Marine: 20}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydralisk_marine_8v12m
+  - name: hydralisk_marine_8v24m
     learner: {Hydralisk: 8}
-    enemy: {Marine: 12}
+    enemy: {Marine: 24}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydralisk_marine_8v14m
+  - name: hydralisk_marine_8v28m
     learner: {Hydralisk: 8}
-    enemy: {Marine: 14}
+    enemy: {Marine: 28}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydralisk_marine_8v16m
+  - name: hydralisk_marine_8v32m
     learner: {Hydralisk: 8}
-    enemy: {Marine: 16}
+    enemy: {Marine: 32}
     distance: [10, 12]
     time_limit: 60
 
