@@ -1,6 +1,6 @@
 # Zerg survey calibration: hydralisks against the built-in AI's (Protoss) stalkers. The attack
-# rule, to find sizes where attack-move wins 15 to 70% (then hydralisk_stalker.yaml). Run per
-# build:
+# rule, to find sizes where attack-move wins 15 to 70% (then hydralisk_stalker.yaml). Round 1: 8
+# hydralisks won 100% against 6 or 8 stalkers and none against 10 or 12. Run per build:
 #
 #   python -m tools.rl.evaluate --config tools/rl/configs/hydralisk_stalker_calibration.yaml --baseline attack --episodes 20 --enemy-build Rush
 
@@ -18,26 +18,14 @@ enemy:
   difficulty: VeryHard
 
 scenarios:
-  - name: hydralisk_stalker_8v6s
+  - name: hydralisk_stalker_8v9s
     learner: {Hydralisk: 8}
-    enemy: {Stalker: 6}
+    enemy: {Stalker: 9}
     distance: [10, 12]
     time_limit: 60
 
-  - name: hydralisk_stalker_8v8s
-    learner: {Hydralisk: 8}
-    enemy: {Stalker: 8}
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: hydralisk_stalker_8v10s
-    learner: {Hydralisk: 8}
-    enemy: {Stalker: 10}
-    distance: [10, 12]
-    time_limit: 60
-
-  - name: hydralisk_stalker_8v12s
-    learner: {Hydralisk: 8}
+  - name: hydralisk_stalker_10v12s
+    learner: {Hydralisk: 10}
     enemy: {Stalker: 12}
     distance: [10, 12]
     time_limit: 60
