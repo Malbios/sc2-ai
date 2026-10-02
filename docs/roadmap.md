@@ -108,7 +108,9 @@ Several learner units already share one model in a fight, each deciding for itse
 - [x] Survey of four more fights against the built-in AI (design doc): hydralisks vs marines
       passes with room (kite_threat_5 57% vs attack 26%); roaches vs hellbats saturates (96 to
       100%); both siege tank fights fail the headroom gate.
-- [ ] A search on hydralisks vs marines, starting at kite_threat_5.
+- [x] A search on hydralisks vs marines, starting at kite_threat_5: 52% to 100% against every
+      build; it learned to back off whenever the weapon cools, at any distance (design doc).
+- [ ] Check it with a hand rule: kite while cooling at any distance, shooting the most dangerous.
 
 ## 4. The bot itself
 

@@ -762,6 +762,15 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
     every fight (units keep walking off each other instead of fighting), 1 apart is level or
     worse. Ground units can't overlap (a roach is 1.25 across), so the rule needs a different
     form for them.
+- **A search from kite_threat_5 took hydralisks vs 20 marines from 52% to 100%.**
+  kite_hydra_threat: the kite family at distance 5 falling back to the most dangerous target,
+  starting exactly at kite_threat_5; 20 generations against the built-in AI, 25 minutes. Each
+  build, 100 fights: start 52% (the rule measured 57%), final and best (20) 100% against every
+  build, life lost 94% to 55%. What it learned: the cooling weight (1.0 to 1.35) now outweighs
+  the bias (-1.5 to -1.3) alone, so a hydralisk backs off whenever its weapon cools down, at
+  any distance. The starting rule hardly ever kited (0% of decisions): hydralisks shoot from
+  about 7 center to center, so a marine was rarely within 5. The search's weights kite on 53%
+  of decisions. A hand rule (kite while cooling at any distance) should be checked next.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
