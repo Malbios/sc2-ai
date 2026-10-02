@@ -711,8 +711,20 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   (final spread weights): "an ally within 1" rose from 1.0 to 1.5 while "cooling" fell from
   1.0 to 0.5, so a mutalisk now moves off an ally within 1 even when its weapon is ready (the
   count of allies within 2 and the distance to the enemy add to it); back off and the weakest
-  stayed off. In words: keep the spacing all the time, not only between shots. A hand rule
-  written that way should be checked next, as with life_kite.
+  stayed off. In words: keep the spacing all the time, not only between shots.
+- **A one-line hand rule matches the spread search.** spread_always_s: whenever the closest ally
+  is within s, fly straight away from it, weapon ready or not; else attack the closest. Each
+  build, 100 fights per fight, averaged (11v3 / 7v2), all in one run:
+
+  | rule | 11 vs 3 thors | 7 vs 2 thors | life lost (11v3) |
+  |---|---|---|---|
+  | spread_1 (only while cooling) | 94% | 43% | 72% |
+  | spread_always_0.75 / 1 / 1.5 | 94 / 100 / 100% | 45 / 75 / 59% | 74 / 63 / 66% |
+  | the search's final weights | 100% | 76% | 63% |
+
+  spread_always_1 plays like the learned weights (same wins and life lost against every
+  build). The spacing is sharp: 0.75 changes nothing over spread_1, 1.5 gives back 16 points.
+  Like life_kite, the search's value was finding the idea; the bot gets a one-line rule.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few

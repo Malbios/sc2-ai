@@ -100,7 +100,8 @@ Several learner units already share one model in a fight, each deciding for itse
       against attack-move's 43 / 20%; the spacing matters; rotation loses (design doc).
 - [x] A search starting at spread_1, against the built-in AI: 93 / 44% to 100 / 75%, gaining 27
       to 35 points against every build in the harder fight (design doc).
-- [ ] Check it with a hand rule: keep 1 apart all the time, not only while the weapon cools.
+- [x] Check it with a hand rule: spread_always_1 (keep 1 apart all the time, not only while the
+      weapon cools) matches the search, 100 / 75%; 0.75 and 1.5 are worse (design doc).
 
 ## 4. The bot itself
 
