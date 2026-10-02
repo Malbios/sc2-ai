@@ -30,12 +30,6 @@ scenarios:
     distance: [10, 12]
     time_limit: 60
 
-  - name: mutalisk_phoenix_16v9p
-    learner: {Mutalisk: 16}
-    enemy: {Phoenix: 9}
-    distance: [10, 12]
-    time_limit: 60
-
 ppo:
   learning_rate: 0.0003
   n_steps: 256
