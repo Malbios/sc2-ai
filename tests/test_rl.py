@@ -1224,6 +1224,20 @@ class MutaliskGroupTaskTest(unittest.TestCase):
         self.assertEqual(self.rule("spread_2.5", far, marine), ATTACK_CLOSEST)
         self.assertEqual(self.rule("spread_1.5_life_kite", far, marine), self.rule("life_kite", far, marine))
 
+    def test_es_spread_mutalisk_starting_policy_is_spread_1(self):
+        from tools.rl.es import FAMILIES, SPREAD_THETA0
+
+        policy, rule = FAMILIES["spread_mutalisk"].policy(SPREAD_THETA0), self.task.baseline_policies()["spread_1"]
+        marine = [self.marine(10, 9.5, 20.5)]
+        allies = {"0.8 north": [StandInFighter(2, 5.5, 21.3, health=120, health_max=120)],
+                  "3 north": [StandInFighter(2, 5.5, 23.5, health=120, health_max=120)], "none": []}
+        for cooldown in (0.0, 10.0):
+            self.muta.weapon_cooldown = cooldown
+            for name, ally in allies.items():
+                observation = self.task.observe(self.muta, ally, marine)
+                with self.subTest(cooldown=cooldown, ally=name):
+                    self.assertEqual(policy(observation), rule(observation))
+
     def test_group_slots_cover_the_largest_group_in_every_mutalisk_config(self):
         from pathlib import Path
 

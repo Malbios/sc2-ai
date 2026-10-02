@@ -12,6 +12,8 @@ exactly at the rule:
   the family's distance (kite_4.5 for mutalisks).
 - rotate_roach, rotate_mutalisk: the same decisions, starting at life_kite instead
   (LIFE_KITE_THETA0).
+- spread_mutalisk (mutalisks vs thors): a score to fly away from the closest ally first, then the
+  kite decisions. SPREAD_THETA0 is spread_1.
 
     python -m tools.rl.es search --config tools/rl/configs/roach_ravager_hard.yaml --out models/es-bile
     python -m tools.rl.es evaluate --config tools/rl/configs/roach_ravager_hard.yaml --theta models/es-bile/theta.json --fights 200
@@ -29,11 +31,13 @@ from pathlib import Path
 
 import numpy as np
 from sc2.data import AIBuild
+from sc2.position import Point2
 
 from tools.rl.config import load_config, with_enemy
 from tools.rl.evaluate import summarize
 from tools.rl.examples.free_kite_task import DISTANCE_SCALE, MOVEMENT_SCALE
 from tools.rl.examples.group_fight_task import (
+    ALLY_INPUTS,
     ATTACK_CLOSEST,
     ATTACK_DANGEROUS,
     ATTACK_WEAKEST,
@@ -41,10 +45,13 @@ from tools.rl.examples.group_fight_task import (
     ENEMY_INPUTS,
     FIRST_ALLY,
     FIRST_ENEMY,
+    FIRST_RAY,
     LIFE,
     THREAT,
     allies_center,
+    closest_ally_offset,
     closest_enemy_distance,
+    move_toward,
     step_away,
 )
 from tools.rl.examples.ravager_task import BILE_RANGE
@@ -130,6 +137,42 @@ def kite_policy(theta: np.ndarray, distance: float) -> Callable[[np.ndarray], in
     return policy
 
 
+SPREAD_FEATURES = ("bias", "cooling", "ally within 1", "closest ally distance", "allies within 2",
+                   "cooldown left", "life", "closest enemy distance")
+SPREAD_SPACING = 1.0
+CROWD_SPACING = 2.0
+# Spread: bias -1.5, cooling +1, ally within 1 +1 (spread_1); back off and the weakest: never.
+SPREAD_THETA0 = np.concatenate([[-1.5, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                [-1.5] + [0.0] * (len(KITE_FEATURES) - 1),
+                                [-1.0] + [0.0] * (len(KITE_FEATURES) - 1)])
+
+
+def spread_features(observation: np.ndarray) -> np.ndarray:
+    """The SPREAD_FEATURES of one unit's observation (with at least one enemy in sight)."""
+    ally = closest_ally_offset(observation)
+    allies = [Point2(observation[start + 1:start + 3]) * DISTANCE_SCALE
+              for start in range(FIRST_ALLY, FIRST_RAY, ALLY_INPUTS) if observation[start]]
+    return np.array([1.0, 1.0 if observation[COOLDOWN] > 0 else 0.0,
+                     1.0 if ally is not None and ally.length <= SPREAD_SPACING else 0.0,
+                     ally.length / DISTANCE_SCALE if ally is not None else 1.0,
+                     sum(offset.length <= CROWD_SPACING for offset in allies) / 4,
+                     observation[COOLDOWN], observation[LIFE],
+                     closest_enemy_distance(observation) / DISTANCE_SCALE], dtype=np.float32)
+
+
+def spread_policy(theta: np.ndarray) -> Callable[[np.ndarray], int]:
+    """Fly straight away from the closest ally when the first score is above 0 (with an ally in
+    sight); otherwise kite_policy at MUTALISK_KITE_DISTANCE with the remaining weights."""
+    spread, kite = theta[:len(SPREAD_FEATURES)], kite_policy(theta[len(SPREAD_FEATURES):], MUTALISK_KITE_DISTANCE)
+
+    def policy(observation: np.ndarray) -> int:
+        ally = closest_ally_offset(observation)
+        if observation[FIRST_ENEMY] and ally is not None and spread_features(observation) @ spread > 0:
+            return move_toward(-ally)
+        return kite(observation)
+    return policy
+
+
 @dataclass(frozen=True)
 class Family:
     theta0: np.ndarray
@@ -145,6 +188,7 @@ FAMILIES = {
     "kite_hydra": Family(KITE_THETA0, partial(kite_policy, distance=HYDRALISK_KITE_DISTANCE), 40),
     "rotate_roach": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=ROACH_KITE_DISTANCE), 20),
     "rotate_mutalisk": Family(LIFE_KITE_THETA0, partial(kite_policy, distance=MUTALISK_KITE_DISTANCE), 20),
+    "spread_mutalisk": Family(SPREAD_THETA0, spread_policy, 20),
 }
 
 
