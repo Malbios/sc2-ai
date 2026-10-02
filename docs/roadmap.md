@@ -102,6 +102,9 @@ Several learner units already share one model in a fight, each deciding for itse
       to 35 points against every build in the harder fight (design doc).
 - [x] Check it with a hand rule: spread_always_1 (keep 1 apart all the time, not only while the
       weapon cools) matches the search, 100 / 75%; 0.75 and 1.5 are worse (design doc).
+- [x] Three more fights through the gates, against the built-in AI (design doc): mutalisks vs
+      marines + thors (spreading alone wins 98 to 99%, no room left), zerglings vs marines (no
+      rule beats attack-move), bile search (climbed to the best bile rule, not past it).
 
 ## 4. The bot itself
 

@@ -725,6 +725,22 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
   spread_always_1 plays like the learned weights (same wins and life lost against every
   build). The spacing is sharp: 0.75 changes nothing over spread_1, 1.5 gives back 16 points.
   Like life_kite, the search's value was finding the idea; the bot gets a one-line rule.
+- **Three more fights through the same gates (calibration, headroom, search), against the
+  built-in AI; none passed all of them.** Each build, 100 fights per fight, averaged:
+  - **Mutalisks vs marines and thors** (does rotation conflict with spreading?). Calibration:
+    attack-move wins 26% with 10 mutalisks vs 6 marines + 2 thors, 46% with 12 vs 8 + 2 (one
+    thor: 85 to 100%). Rules (10v6+2 / 12v8+2): attack 25 / 50%, life_kite 5 / 18%,
+    spread_always_1 98 / 99%, spread_always_1 then life_kite 98 / 100%. Spreading alone wins
+    nearly everything, so no room is left for a search, and the ideas don't conflict here: the
+    thors decide the fight.
+  - **Zerglings vs marines** (the first RL failure). Calibration: 8 vs 6 marines 35%, 12 vs 9
+    12% (5 or 8 marines: 90 to 100%, 7 or 10: none). Rules (8v6 / 12v9): attack 29 / 5%, flank
+    27 / 1%, flank radius 2 / 4: 27 / 2% and 16 / 0%. No rule beats attack-move, so the
+    headroom gate fails; there is no starting idea to search from.
+  - **Bile, searched against the built-in AI** (bile family, starting at the clump rule,
+    20 generations, 20 minutes). Final weights 95 / 66% (12 + 3 / 14 + 3 bio): +11 over its
+    start (the clump rule, 93 / 55%) in the harder fight, but level with the most dangerous
+    rule (94 / 73%, short of the +10 bar). The search climbed to the best hand rule, not past.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
