@@ -1,0 +1,33 @@
+# The Zerg survey fight picked by calibration (roach_roach_calibration.yaml, the attack rule, 20
+# fights per built-in AI build): attack-move wins 67% with 8 roaches against 8 roaches (8 vs 9:
+# 2%). Every rule, per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/roach_roach.yaml --baseline attack --episodes 100 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.roach_group_task:RoachGroupTask
+
+enemy:
+  mode: builtin
+  race: Zerg
+  difficulty: VeryHard
+
+scenarios:
+  - name: roach_roach_8v8r
+    learner: {Roach: 8}
+    enemy: {Roach: 8}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]

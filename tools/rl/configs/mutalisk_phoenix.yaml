@@ -1,0 +1,33 @@
+# The Zerg survey fight picked by calibration (mutalisk_phoenix_calibration.yaml, the attack rule,
+# 20 fights per built-in AI build): attack-move wins 57% with 12 mutalisks against 7 phoenixes (12
+# vs 6: 100%, 8 vs 5 and 12 vs 8: none). Every rule, per build:
+#
+#   python -m tools.rl.evaluate --config tools/rl/configs/mutalisk_phoenix.yaml --baseline attack --episodes 100 --enemy-build Rush
+
+map: MicroTraining410
+decision_interval: 3         # the task's movement scale assumes 3
+
+learner:
+  race: Zerg
+  task: tools.rl.examples.mutalisk_group_task:MutaliskGroupTask
+
+enemy:
+  mode: builtin
+  race: Protoss
+  difficulty: VeryHard
+
+scenarios:
+  - name: mutalisk_phoenix_12v7p
+    learner: {Mutalisk: 12}
+    enemy: {Phoenix: 7}
+    distance: [10, 12]
+    time_limit: 60
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.999
+  ent_coef: 0.01
+  net_arch: [128, 128]
