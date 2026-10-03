@@ -119,8 +119,9 @@ Several learner units already share one model in a fight, each deciding for itse
 - [x] Searches on the three, each from its best rule, against the built-in AI (design doc):
       mutalisks vs hydralisks 30% to 78%; hydralisks vs mutalisks 61% to 75% (repeated);
       roaches vs stalkers fell from 82 / 90% to 31 / 59% (the search left a narrow peak).
-- [ ] Hand-rule checks for the two gains (mutalisks: healthy ones back off early in the
-      cooldown too; hydralisks: back off early in the cooldown at any distance).
+- [x] Hand-rule checks for the two gains: life_kite_x0.5 (mutalisks vs hydralisks) 88%, 11
+      points above its search; early_kite_threat_0.5 (hydralisks vs mutalisks) 78%, matching
+      its search (design doc).
 
 ## 4. The bot itself
 

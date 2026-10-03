@@ -818,6 +818,25 @@ Tuning the bile rule, then training against it (2026-09). Rules first, 200 fight
     rotating (4% of decisions, from 33%). This search can leave a sharp optimum: it judges
     directions by nearby candidates, never by the current weights themselves. The per-build
     check against the start is what catches it.
+- **Hand rules from the two gains match or beat them.** Each build, 100 fights, all in one run:
+
+  | mutalisks vs hydralisks (12 vs 11) | wins | life lost |
+  |---|---|---|
+  | life_kite (back off when cooldown left > life) | 31% | 97% |
+  | life_kite_x0.25 / x0.5 / x0.75 (> 0.25 / 0.5 / 0.75 x life) | 81 / 88 / 70% | 86 / 84 / 90% |
+  | the search's weights | 77% | 88% |
+
+  | hydralisks vs mutalisks (8 vs 10) | wins | life lost |
+  |---|---|---|
+  | kite_threat_5 | 63% | 93% |
+  | early_kite_threat_0.5 / 0.7 (also back off at any distance while more than 50 / 70% of the cooldown is left) | 78 / 65% | 90 / 93% |
+  | the search's weights | 75% | 92% |
+
+  - life_kite_x0.5 beats the search by 11 points (83 to 92% per build): the search found the
+    direction (healthy mutalisks should back off too) but stopped short of the best setting.
+  - early_kite_threat_0.5 matches the search. Backing off at any distance for the first half
+    of the cooldown, not the whole of it, is the idea.
+  - As in every win so far, the search's value was the idea; a rule carries it.
 - **Deterministic evaluation hid all of it:** always taking the most likely action, the same
   models won 6 to 10%, exactly attack-move. At any single step attacking is more likely than
   biling, so the most likely action never biles; sampled, a ready ravager biles within a few
