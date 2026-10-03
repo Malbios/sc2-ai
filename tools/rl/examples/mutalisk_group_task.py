@@ -30,6 +30,9 @@ SHORT_KITE_DISTANCE = 4.5  # the best kite distance in the headroom survey
 HURT_LIFE_SHARES = (0.5, 0.7, 0.9)
 SPREAD_SPACINGS = (1.0, 1.5, 2.5)  # center to center; a thor's splash radius is 0.5
 ALWAYS_SPREAD_SPACINGS = (0.75, 1.0, 1.5)
+# Against hydralisks the search's weights back off once cooldown left passes about half the life
+# share; these bracket that.
+LIFE_WEIGHTS = (0.25, 0.5, 0.75)
 CLUMP_RADIUS = 1.5
 CLUMP_SAFE_DISTANCE = 7.0  # regrouping only while no marine is this close
 
@@ -70,6 +73,8 @@ class MutaliskGroupTask(GroupFightTask):
             **{f"hurt_kite_{life:g}": lambda observation, life=life: hurt_kite_rule(observation, life)
                for life in HURT_LIFE_SHARES},
             "life_kite": lambda observation: life_kite_rule(observation, SHORT_KITE_DISTANCE),
+            **{f"life_kite_x{weight:g}": lambda observation, w=weight: life_kite_rule(
+                observation, SHORT_KITE_DISTANCE, life_weight=w) for weight in LIFE_WEIGHTS},
             **{f"spread_{spacing:g}": lambda observation, s=spacing: spread_rule(observation, s)
                for spacing in SPREAD_SPACINGS},
             **{f"spread_always_{spacing:g}": lambda observation, s=spacing: spread_rule(observation, s, always=True)

@@ -181,11 +181,13 @@ def spread_rule(observation: np.ndarray, spacing: float, otherwise: int = ATTACK
     return otherwise
 
 
-def life_kite_rule(observation: np.ndarray, distance: float, attack: int = ATTACK_CLOSEST) -> int:
-    """Back off while an enemy is within `distance` and more of the cooldown is left than of the
-    own life, else `attack`: healthy units only step back right after shooting, hurt ones for
-    most of the cooldown, so enemies shooting the closest target turn to a healthy one (the
-    boundary evolution strategies found on the mutalisk fight, simplified)."""
-    if closest_enemy_distance(observation) <= distance and observation[COOLDOWN] > observation[LIFE]:
+def life_kite_rule(observation: np.ndarray, distance: float, attack: int = ATTACK_CLOSEST,
+                   life_weight: float = 1.0) -> int:
+    """Back off while an enemy is within `distance` and the share of cooldown left is above
+    `life_weight` times the own life share, else `attack`: healthy units only step back right
+    after shooting, hurt ones for most of the cooldown, so enemies shooting the closest target
+    turn to a healthy one (the boundary evolution strategies found on the mutalisk fight,
+    simplified). A smaller life weight backs off more."""
+    if closest_enemy_distance(observation) <= distance and observation[COOLDOWN] > life_weight * observation[LIFE]:
         return step_away(observation)
     return attack
